@@ -1,4 +1,5 @@
 import type { LocationEntry, CountryStat, YearSummary } from './types';
+import { computeStays } from './stays';
 
 export function computeCountryStats(entries: LocationEntry[]): CountryStat[] {
 	const map = new Map<string, CountryStat>();
@@ -41,27 +42,12 @@ export function getAvailableYears(entries: LocationEntry[]): number[] {
 }
 
 export function getLongestStreak(entries: LocationEntry[]): { country: string; days: number } {
-	if (entries.length === 0) return { country: '', days: 0 };
-
-	const sorted = [...entries].sort((a, b) => a.date - b.date);
-	let best = { country: sorted[0].country, days: 1 };
-	let current = { country: sorted[0].country, days: 1 };
-
-	for (let i = 1; i < sorted.length; i++) {
-		const prev = sorted[i - 1];
-		const curr = sorted[i];
-		const diffDays = Math.round((curr.date - prev.date) / 86400000);
-
-		if (curr.isoCountryCode === prev.isoCountryCode && diffDays <= 1) {
-			current.days++;
-		} else {
-			current = { country: curr.country, days: 1 };
-		}
-
-		if (current.days > best.days) best = { ...current };
-	}
-
-	return best;
+	const stays = computeStays(entries);
+	if (stays.length === 0) return { country: '', days: 0 };
+	return stays.reduce(
+		(best, stay) => (stay.days > best.days ? { country: stay.country, days: stay.days } : best),
+		{ country: '', days: 0 }
+	);
 }
 
 export function getMostTraveledMonth(entries: LocationEntry[]): { month: string; countries: number } {
