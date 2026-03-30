@@ -76,15 +76,12 @@
 
 		const path = d3.geoPath(projection);
 
-		// @ts-expect-error world-atlas ships without TS types
-		const countries = feature(worldData, worldData.objects.countries);
+		const countries = feature(worldData as any, (worldData as any).objects.countries);
 
 		svg
 			.append('g')
-			// @ts-expect-error topojson FeatureCollection
 			.selectAll('path')
-			// @ts-expect-error topojson features
-			.data(countries.features)
+			.data((countries as any).features)
 			.join('path')
 			.attr('d', path as any)
 			.attr('fill', (d: any) => countryColor(alpha2FromFeature(d)))
