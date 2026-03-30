@@ -4,34 +4,46 @@
 /// <reference lib="webworker" />
 
 import { build, files, version } from '$service-worker';
-import { precacheAndRoute } from 'workbox-precaching';
 import { openDB } from 'idb';
 
 declare const self: ServiceWorkerGlobalScope;
 
-// Precache all assets
-precacheAndRoute(self.__WB_MANIFEST);
+// ── Precache ─────────────────────────────────────────────────────────────────
+const CACHE = `cache-${version}`;
+const ASSETS = [...build, ...files];
 
-// ─── Web Share Target handler ───────────────────────────────────────────────
-// When Scriptable shares a JSON file to this PWA, iOS sends a POST to /sync.
-// The service worker intercepts it, stores the file content in IndexedDB,
-// and redirects to /sync?shared=1 so the page can pick it up.
+self.addEventListener('install', (e) => {
+	e.waitUntil(
+		caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+	);
+});
 
-async function getPendingDB() {
-	return openDB('worldwide-pending', 1, {
-		upgrade(db) {
-			db.createObjectStore('files', { autoIncrement: true });
-		}
-	});
-}
+self.addEventListener('activate', (e) => {
+	e.waitUntil(
+		caches
+			.keys()
+			.then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+			.then(() => self.clients.claim())
+	);
+});
 
-self.addEventListener('fetch', (event: FetchEvent) => {
-	const url = new URL(event.request.url);
+self.addEventListener('fetch', (e: FetchEvent) => {
+	const url = new URL(e.request.url);
 
-	if (url.pathname === '/sync' && event.request.method === 'POST') {
-		event.respondWith(handleShareTarget(event.request));
+	// ── Web Share Target ──────────────────────────────────────────────────────
+	// iOS sends a POST to /sync when the user shares JSON files to this PWA.
+	// Store the file content in IndexedDB so the sync page can import it.
+	if (url.pathname === '/sync' && e.request.method === 'POST') {
+		e.respondWith(handleShareTarget(e.request));
 		return;
 	}
+
+	// ── Cache-first for precached assets ─────────────────────────────────────
+	if (e.request.method !== 'GET') return;
+
+	e.respondWith(
+		caches.match(e.request).then((cached) => cached ?? fetch(e.request))
+	);
 });
 
 async function handleShareTarget(request: Request): Promise<Response> {
@@ -39,20 +51,17 @@ async function handleShareTarget(request: Request): Promise<Response> {
 	const files = formData.getAll('json') as File[];
 
 	if (files.length > 0) {
-		const db = await getPendingDB();
+		const db = await openDB('worldwide-pending', 1, {
+			upgrade(db) {
+				db.createObjectStore('files', { autoIncrement: true });
+			}
+		});
 		const tx = db.transaction('files', 'readwrite');
 		for (const file of files) {
-			const text = await file.text();
-			await tx.store.put({ name: file.name, content: text, timestamp: Date.now() });
+			await tx.store.put({ name: file.name, content: await file.text(), timestamp: Date.now() });
 		}
 		await tx.done;
 	}
 
 	return Response.redirect('/sync?shared=1', 303);
 }
-
-// ─── Lifecycle ───────────────────────────────────────────────────────────────
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event: ExtendableEvent) => {
-	event.waitUntil(self.clients.claim());
-});
