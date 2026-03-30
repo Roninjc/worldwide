@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { entriesStore } from '$lib/entriesStore.svelte';
 	import { flagEmoji } from '$lib/flag';
+	import { countUniqueDays } from '$lib/stats';
 	import {
 		computeStays,
 		buildColorMap,
@@ -20,9 +21,9 @@
 			const yearEnd = new Date(year + 1, 0, 1).getTime();
 			const yearStays = stays.filter((s) => s.startDate < yearEnd && s.endDate >= yearStart);
 			const countriesThisYear = new Set(yearStays.map((s) => s.isoCountryCode)).size;
-			const daysThisYear = entriesStore.entries.filter(
-				(e) => new Date(e.date).getFullYear() === year
-			).length;
+			const daysThisYear = countUniqueDays(
+				entriesStore.entries.filter((e) => new Date(e.date).getFullYear() === year)
+			);
 			return { year, stays: yearStays, countriesThisYear, daysThisYear };
 		})
 	);

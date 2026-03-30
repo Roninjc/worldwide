@@ -1,5 +1,5 @@
 import { getAllEntries, importEntries, getEntryCount } from './db';
-import { computeCountryStats, getAvailableYears } from './stats';
+import { computeCountryStats, getAvailableYears, countUniqueDays } from './stats';
 import type { LocationEntry, CountryStat } from './types';
 
 function createEntriesStore() {
@@ -8,7 +8,7 @@ function createEntriesStore() {
 
 	const countryStats = $derived(computeCountryStats(entries));
 	const years = $derived(getAvailableYears(entries));
-	const totalDays = $derived(entries.length);
+	const totalDays = $derived(countUniqueDays(entries));
 	const totalCountries = $derived(countryStats.length);
 
 	async function load() {

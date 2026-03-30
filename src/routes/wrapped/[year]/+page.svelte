@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { entriesStore } from '$lib/entriesStore.svelte';
-	import { computeCountryStats, getMostTraveledMonth } from '$lib/stats';
+	import { computeCountryStats, getMostTraveledMonth, countUniqueDays } from '$lib/stats';
 	import { computeStays } from '$lib/stays';
 	import { flagEmoji } from '$lib/flag';
 	import type { CountryStat } from '$lib/types';
@@ -20,7 +20,7 @@
 	const yearStats = $derived(computeCountryStats(yearEntries));
 	const yearStays = $derived(computeStays(yearEntries));
 
-	const totalDays = $derived(yearEntries.length);
+	const totalDays = $derived(countUniqueDays(yearEntries));
 	const totalCountries = $derived(yearStats.length);
 
 	const topCountry = $derived(yearStats[0] as CountryStat | undefined);

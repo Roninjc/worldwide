@@ -1,4 +1,5 @@
 import type { LocationEntry } from './types';
+import { toDateKey } from './stats';
 
 export interface Stay {
 	country: string;
@@ -21,19 +22,20 @@ export function buildColorMap(entries: LocationEntry[]): Map<string, string> {
 	return new Map(isos.map((iso, i) => [iso, PALETTE[i % PALETTE.length]]));
 }
 
-/** Group sorted day-entries into continuous stays (same country, no gap > 1 day) */
+/** Group sorted day-entries into continuous stays (same country, no gap > 2 days) */
 export function computeStays(entries: LocationEntry[]): Stay[] {
 	if (entries.length === 0) return [];
 
 	const sorted = [...entries].sort((a, b) => a.date - b.date);
 	const stays: Stay[] = [];
 
-	let current: Stay = {
+	// Track unique date keys per stay to avoid double-counting border-crossing days
+	let currentDates = new Set<string>([toDateKey(sorted[0].date)]);
+	let current: Omit<Stay, 'days'> = {
 		country: sorted[0].country,
 		isoCountryCode: sorted[0].isoCountryCode,
 		startDate: sorted[0].date,
-		endDate: sorted[0].date,
-		days: 1
+		endDate: sorted[0].date
 	};
 
 	for (let i = 1; i < sorted.length; i++) {
@@ -47,20 +49,20 @@ export function computeStays(entries: LocationEntry[]): Stay[] {
 		//   C) Hacer la tolerancia configurable por el usuario en ajustes
 		// Por ahora se usa una tolerancia de 2 días como heurística razonable.
 		if (entry.isoCountryCode === current.isoCountryCode && gap <= 2) {
+			currentDates.add(toDateKey(entry.date));
 			current.endDate = entry.date;
-			current.days++;
 		} else {
-			stays.push(current);
+			stays.push({ ...current, days: currentDates.size });
+			currentDates = new Set([toDateKey(entry.date)]);
 			current = {
 				country: entry.country,
 				isoCountryCode: entry.isoCountryCode,
 				startDate: entry.date,
-				endDate: entry.date,
-				days: 1
+				endDate: entry.date
 			};
 		}
 	}
-	stays.push(current);
+	stays.push({ ...current, days: currentDates.size });
 
 	return stays;
 }

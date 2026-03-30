@@ -3,7 +3,9 @@
 	import * as d3 from 'd3';
 	import { feature } from 'topojson-client';
 	import type { Topology } from 'topojson-specification';
-	import { numericToAlpha2, getName } from 'i18n-iso-countries';
+	import { numericToAlpha2, getName, registerLocale } from 'i18n-iso-countries';
+	import enLocale from 'i18n-iso-countries/langs/en.json';
+	registerLocale(enLocale);
 
 	interface Props {
 		daysByCountry: Map<string, number>;
