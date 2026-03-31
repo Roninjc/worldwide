@@ -50,9 +50,24 @@
 
 <div class="flex-1 overflow-y-auto" style="padding-bottom: var(--nav-clearance)">
   <div class="px-4 py-6 max-w-2xl mx-auto space-y-6">
-    <div>
-      <h1 class="text-2xl font-bold" style="color: var(--app-fg)">Passport</h1>
-      <p class="text-sm mt-1" style="color: var(--app-muted)">Tu progreso por el mundo</p>
+    <div class="flex items-start justify-between">
+      <div>
+        <h1 class="text-2xl font-bold" style="color: var(--app-fg)">Passport</h1>
+        <p class="text-sm mt-1" style="color: var(--app-muted)">Tu progreso por el mundo</p>
+      </div>
+      <a
+        href="/sync"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium mt-1 transition-opacity hover:opacity-70"
+        style="background: var(--app-surface); color: var(--app-muted); border: 1px solid var(--app-border)"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+          <path d="M8 16H3v5"/>
+        </svg>
+        Importar
+      </a>
     </div>
 
     {#if entriesStore.totalDays === 0}
