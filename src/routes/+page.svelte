@@ -2,7 +2,7 @@
 	import { tick } from 'svelte';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
-	import { fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { entriesStore } from '$lib/entriesStore.svelte';
@@ -233,6 +233,46 @@
 	$effect(() => { tweenedDays.set(filteredTotalDays); });
 	$effect(() => { tweenedCountries.set(filteredTotalCountries); });
 	$effect(() => { tweenedCoverage.set(coveragePercent); });
+
+	// ── Map API + country selection ────────────────────────────────────────
+	let mapApi = $state<{ zoomToVisited: () => void; resetZoom: () => void } | null>(null);
+	let selectedCountry = $state<string | null>(null);
+
+	function onCountryClick(alpha2: string) {
+		selectedCountry = alpha2 || null;
+	}
+
+	// ── Bottom sheet data ──────────────────────────────────────────────────
+	const selectedStat = $derived(
+		selectedCountry
+			? filteredCountryStats.find((s) => s.isoCountryCode === selectedCountry) ?? null
+			: null
+	);
+
+	const selectedAllTimeStat = $derived(
+		selectedCountry
+			? entriesStore.countryStats.find((s) => s.isoCountryCode === selectedCountry) ?? null
+			: null
+	);
+
+	const selectedStays = $derived.by(() => {
+		if (!selectedCountry) return [];
+		return computeStays(filteredEntries.filter((e) => e.isoCountryCode === selectedCountry));
+	});
+
+	// ── Swipe to dismiss ───────────────────────────────────────────────────
+	let swipeStartY = 0;
+
+	function onSheetTouchStart(e: TouchEvent) {
+		swipeStartY = e.touches[0].clientY;
+	}
+	function onSheetTouchEnd(e: TouchEvent) {
+		if (e.changedTouches[0].clientY - swipeStartY > 80) selectedCountry = null;
+	}
+
+	function formatShortDate(ms: number) {
+		return new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+	}
 </script>
 
 <!-- Timeline tooltip (fixed so it's never clipped) -->
@@ -249,7 +289,7 @@
 	</div>
 {/if}
 
-<div class="flex-1 flex flex-col overflow-hidden">
+<div class="flex-1 flex flex-col overflow-hidden relative">
 	{#if !entriesStore.loaded}
 		<div class="flex-1 flex items-center justify-center text-slate-500">Cargando…</div>
 
@@ -271,7 +311,11 @@
 		<div class="flex-1 overflow-y-auto">
 			<!-- Map -->
 			<div class="bg-slate-950 px-0 pt-2">
-				<WorldMap daysByCountry={filteredDaysByCountry} />
+				<WorldMap
+					daysByCountry={filteredDaysByCountry}
+					{onCountryClick}
+					bind:api={mapApi}
+				/>
 			</div>
 
 			<!-- Map legend -->
@@ -433,5 +477,85 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- ── Country bottom sheet ───────────────────────────────────────── -->
+		{#if selectedCountry && selectedStat}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="fixed inset-x-0 bottom-0 z-50 flex flex-col
+					bg-slate-900 border-t border-slate-700/80 rounded-t-2xl shadow-2xl"
+				style="max-height: 70%"
+				in:fly={{ y: 420, duration: 320, easing: cubicOut }}
+				out:fly={{ y: 420, duration: 220 }}
+				ontouchstart={onSheetTouchStart}
+				ontouchend={onSheetTouchEnd}
+			>
+				<!-- Drag handle -->
+				<div class="flex justify-center pt-2.5 pb-1 flex-shrink-0 cursor-pointer" onclick={() => { selectedCountry = null; }}>
+					<div class="w-9 h-1 bg-slate-600 rounded-full"></div>
+				</div>
+
+				<!-- Header -->
+				<div class="flex items-center gap-3 px-4 pb-3 flex-shrink-0">
+					<span class="text-3xl leading-none">{flagEmoji(selectedStat.isoCountryCode)}</span>
+					<div class="flex-1 min-w-0">
+						<h2 class="font-bold text-white text-lg leading-tight truncate">{selectedStat.country}</h2>
+						{#if periodLabel}
+							<p class="text-xs text-sky-400/70 font-mono mt-0.5">{periodLabel}</p>
+						{/if}
+					</div>
+					<button
+						class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800
+							hover:bg-slate-700 text-slate-400 hover:text-white transition-colors flex-shrink-0"
+						onclick={() => { selectedCountry = null; }}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+							<path d="M18 6 6 18M6 6l12 12"/>
+						</svg>
+					</button>
+				</div>
+
+				<!-- Stats row -->
+				<div class="flex gap-3 px-4 pb-4 flex-shrink-0">
+					<div class="flex-1 bg-slate-800/70 rounded-xl p-3 text-center">
+						<p class="text-3xl font-black text-white tabular-nums">{selectedStat.days}</p>
+						<p class="text-slate-400 text-xs mt-0.5">días{periodLabel ? ` en ${periodLabel}` : ''}</p>
+					</div>
+					<div class="flex-1 bg-slate-800/70 rounded-xl p-3 text-center">
+						<p class="text-3xl font-black text-white tabular-nums">{selectedStays.length}</p>
+						<p class="text-slate-400 text-xs mt-0.5">estanci{selectedStays.length === 1 ? 'a' : 'as'}</p>
+					</div>
+					{#if periodLabel && selectedAllTimeStat && selectedAllTimeStat.days !== selectedStat.days}
+						<div class="flex-1 bg-slate-800/40 rounded-xl p-3 text-center border border-slate-700/50">
+							<p class="text-3xl font-black text-slate-400 tabular-nums">{selectedAllTimeStat.days}</p>
+							<p class="text-slate-500 text-xs mt-0.5">días totales</p>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Stays list (scrollable) -->
+				{#if selectedStays.length > 0}
+					<div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+						<p class="text-slate-500 text-xs uppercase tracking-wider mb-2">Estancias</p>
+						<div class="space-y-1.5">
+							{#each selectedStays as stay}
+								<div class="flex items-center gap-3 py-2 border-b border-slate-800/60 last:border-0">
+									<div class="flex-1 min-w-0">
+										<p class="text-sm text-slate-300">
+											{formatShortDate(stay.startDate)}
+											{#if stay.days > 1}
+												<span class="text-slate-600 mx-1">→</span>
+												{formatShortDate(stay.endDate)}
+											{/if}
+										</p>
+									</div>
+									<span class="text-sm font-mono text-sky-400 flex-shrink-0">{stay.days}d</span>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 </div>

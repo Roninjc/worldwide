@@ -7,19 +7,34 @@
 	import enLocale from 'i18n-iso-countries/langs/en.json';
 	registerLocale(enLocale);
 
-	interface Props {
-		daysByCountry: Map<string, number>;
+	interface MapAPI {
+		zoomToVisited: () => void;
+		resetZoom: () => void;
 	}
 
-	let { daysByCountry }: Props = $props();
+	interface Props {
+		daysByCountry: Map<string, number>;
+		onCountryClick?: (alpha2: string) => void;
+		api?: MapAPI | null;
+	}
+
+	let { daysByCountry, onCountryClick, api = $bindable(null) }: Props = $props();
 
 	let container: HTMLDivElement | undefined = $state();
 	let svgEl: SVGSVGElement | undefined = $state();
 	let tooltip = $state<{ name: string; days: number; x: number; y: number } | null>(null);
 	let worldData = $state<Topology | null>(null);
+	let zoomScale = $state(1);
 
-	// D3 group holding all country paths (kept across color updates)
+	// D3 internals (not reactive state)
 	let g: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
+	let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
+	let currentTransform = d3.zoomIdentity;
+
+	// Tap detection (pointerdown → pointerup, bypassing D3 zoom capture)
+	let tapAlpha2: string | null = null;
+	let tapX = 0;
+	let tapY = 0;
 
 	// ── Helpers ──────────────────────────────────────────────────────────
 	function alpha2FromFeature(d: any): string {
@@ -61,7 +76,7 @@
 			.attr('d', pathGen as any)
 			.attr('fill', (d: any) => countryColor(alpha2FromFeature(d)))
 			.attr('stroke', '#0f172a')
-			.attr('stroke-width', 0.4)
+			.attr('stroke-width', 0.4 / currentTransform.k)
 			.on('mousemove', (event: MouseEvent, d: any) => {
 				const alpha2 = alpha2FromFeature(d);
 				const rect = container!.getBoundingClientRect();
@@ -73,21 +88,50 @@
 				};
 			})
 			.on('mouseleave', () => { tooltip = null; })
-			.on('touchstart', (event: TouchEvent, d: any) => {
-				event.preventDefault();
+			.on('pointerdown', (event: PointerEvent, d: any) => {
+				// Record tap candidate BEFORE D3 zoom calls setPointerCapture on the SVG.
+				// pointerdown bubbles path→svg, so this fires before D3's svg handler.
 				const alpha2 = alpha2FromFeature(d);
-				const touch = event.touches[0];
-				const rect = container!.getBoundingClientRect();
-				tooltip = {
-					name: getName(alpha2, 'en') ?? 'Unknown',
-					days: daysByCountry.get(alpha2) ?? 0,
-					x: touch.clientX - rect.left,
-					y: touch.clientY - rect.top
-				};
+				tapAlpha2 = (daysByCountry.get(alpha2) ?? 0) > 0 ? alpha2 : null;
+				tapX = event.clientX;
+				tapY = event.clientY;
 			});
+
+		// ── Zoom behavior ─────────────────────────────────────────────────
+		if (!zoomBehavior) {
+			zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
+				.scaleExtent([1, 12])
+				.on('zoom', (event) => {
+					currentTransform = event.transform;
+					zoomScale = event.transform.k;
+					if (g) {
+						g.attr('transform', event.transform);
+						g.selectAll('path').attr('stroke-width', 0.4 / event.transform.k);
+					}
+				});
+		}
+
+		// Re-apply zoom behavior and restore current transform
+		svg.call(zoomBehavior);
+		svg.call(zoomBehavior.transform, currentTransform);
+
+		// Tap detection: pointerup fires on SVG (D3 zoom redirects it there via setPointerCapture).
+		// We measure movement since pointerdown — small movement = tap, not drag.
+		// Using a D3 namespace so repeated buildPaths() calls replace rather than stack.
+		svg.on('pointerup.tap', (event: PointerEvent) => {
+			const moved = Math.hypot(event.clientX - tapX, event.clientY - tapY);
+			if (moved < 8) {
+				if (tapAlpha2) {
+					onCountryClick?.(tapAlpha2);
+				} else {
+					onCountryClick?.(''); // tapped background → deselect
+				}
+			}
+			tapAlpha2 = null;
+		});
 	}
 
-	// ── Update only fill colors (debounced timeline scrub) ───────────────
+	// ── Update only fill colors ──────────────────────────────────────────
 	function updateColors(duration: number) {
 		if (!g) return;
 		g.selectAll<SVGPathElement, any>('path')
@@ -96,20 +140,75 @@
 			.attr('fill', (d: any) => countryColor(alpha2FromFeature(d)));
 	}
 
-	// ── Load data + ResizeObserver ───────────────────────────────────────
-	onMount(async () => {
-		const raw = await import('world-atlas/countries-110m.json');
-		worldData = raw.default as unknown as Topology;
+	// ── Zoom to visited countries ────────────────────────────────────────
+	function zoomToVisited() {
+		if (!svgEl || !g || !container || !zoomBehavior) return;
 
-		let rafId: number;
-		const ro = new ResizeObserver(() => {
-			cancelAnimationFrame(rafId);
-			rafId = requestAnimationFrame(buildPaths);
+		const visitedPaths = g.selectAll<SVGPathElement, any>('path').filter((d) => {
+			return (daysByCountry.get(alpha2FromFeature(d)) ?? 0) > 0;
 		});
-		if (container) ro.observe(container);
+		if (visitedPaths.empty()) return;
+
+		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+		visitedPaths.each(function () {
+			const b = this.getBBox();
+			if (b.width === 0 && b.height === 0) return;
+			x0 = Math.min(x0, b.x);
+			y0 = Math.min(y0, b.y);
+			x1 = Math.max(x1, b.x + b.width);
+			y1 = Math.max(y1, b.y + b.height);
+		});
+		if (!isFinite(x0)) return;
+
+		const width = container.clientWidth;
+		const height = Math.round(width * 0.52);
+		const pad = 32;
+		const scale = Math.min(
+			(width - pad * 2) / (x1 - x0),
+			(height - pad * 2) / (y1 - y0),
+			10
+		);
+		const tx = width / 2 - scale * ((x0 + x1) / 2);
+		const ty = height / 2 - scale * ((y0 + y1) / 2);
+
+		d3.select(svgEl)
+			.transition()
+			.duration(750)
+			.call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+	}
+
+	// ── Reset to world view ──────────────────────────────────────────────
+	function resetZoom() {
+		if (!svgEl || !zoomBehavior) return;
+		d3.select(svgEl)
+			.transition()
+			.duration(500)
+			.call(zoomBehavior.transform, d3.zoomIdentity);
+	}
+
+	// ── Expose API to parent ─────────────────────────────────────────────
+	$effect(() => {
+		api = { zoomToVisited, resetZoom };
+	});
+
+	// ── Load data + ResizeObserver ───────────────────────────────────────
+	onMount(() => {
+		let rafId: number;
+		let ro: ResizeObserver | null = null;
+
+		(async () => {
+			const raw = await import('world-atlas/countries-110m.json');
+			worldData = raw.default as unknown as Topology;
+
+			ro = new ResizeObserver(() => {
+				cancelAnimationFrame(rafId);
+				rafId = requestAnimationFrame(buildPaths);
+			});
+			if (container) ro.observe(container);
+		})();
 
 		return () => {
-			ro.disconnect();
+			if (ro) ro.disconnect();
 			cancelAnimationFrame(rafId);
 		};
 	});
@@ -135,7 +234,43 @@
 	{#if !worldData}
 		<div class="flex items-center justify-center h-48 text-slate-600 text-sm">Cargando mapa…</div>
 	{:else}
-		<svg bind:this={svgEl} class="w-full" aria-label="Mapa mundial"></svg>
+		<svg bind:this={svgEl} class="w-full cursor-grab active:cursor-grabbing" aria-label="Mapa mundial"></svg>
+
+		<!-- Floating map controls (top-right) -->
+		<div class="absolute top-2 right-2 flex flex-col gap-1.5">
+			<!-- Zoom to visited -->
+			{#if daysByCountry.size > 0}
+				<button
+					class="w-8 h-8 flex items-center justify-center rounded-lg
+						bg-slate-800/90 hover:bg-slate-700 border border-slate-600/60
+						text-slate-300 text-sm shadow-lg backdrop-blur-sm transition-colors"
+					title="Zoom a países visitados"
+					onclick={zoomToVisited}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+						<path d="M11 8v6M8 11h6"/>
+					</svg>
+				</button>
+			{/if}
+
+			<!-- Reset zoom (only when zoomed) -->
+			{#if zoomScale > 1.05}
+				<button
+					class="w-8 h-8 flex items-center justify-center rounded-lg
+						bg-slate-800/90 hover:bg-slate-700 border border-slate-600/60
+						text-slate-300 text-sm shadow-lg backdrop-blur-sm transition-colors"
+					title="Vista global"
+					onclick={resetZoom}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/>
+						<path d="M3.6 9h16.8M3.6 15h16.8"/>
+						<path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18"/>
+					</svg>
+				</button>
+			{/if}
+		</div>
 	{/if}
 
 	{#if tooltip}
