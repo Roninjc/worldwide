@@ -56,6 +56,26 @@
   let pxPerDay = $state(1);
   let scrollLeft = $state(0);
 
+  // ── Stats scroll fades ────────────────────────────────────────────────
+  let statsEl = $state<HTMLDivElement | undefined>();
+  let showTopFade = $state(false);
+  let showBottomFade = $state(false);
+
+  function updateFades() {
+    if (!statsEl) return;
+    showTopFade = statsEl.scrollTop > 4;
+    showBottomFade =
+      statsEl.scrollTop + statsEl.clientHeight < statsEl.scrollHeight - 4;
+  }
+
+  $effect(() => {
+    if (!statsEl) return;
+    updateFades();
+    const ro = new ResizeObserver(updateFades);
+    ro.observe(statsEl);
+    return () => ro.disconnect();
+  });
+
   const MIN_PPD = 0.3;
   const MAX_PPD = 80;
 
@@ -444,156 +464,185 @@
     </div>
 
     <!-- ── Stats zone (scrollable) ────────────────────────────────────── -->
-    <div class="flex-1 min-h-0 overflow-y-auto">
-      <!-- Legend strip -->
+    <div class="flex-1 min-h-0 relative">
+      <!-- Top fade — visible when scrolled down -->
       <div
-        class="flex items-center gap-2 px-4 pt-2.5 pb-1.5 flex-wrap border-b"
-        style="border-color: var(--app-border)"
+        class="absolute inset-x-0 top-0 z-10 pointer-events-none h-8"
+        style="
+          background: linear-gradient(to bottom, var(--app-bg) 0%, transparent 100%);
+          opacity: {showTopFade ? 1 : 0};
+          transition: opacity 0.3s ease;
+        "
+      ></div>
+
+      <!-- Bottom fade — visible when more content below -->
+      <div
+        class="absolute inset-x-0 bottom-0 z-10 pointer-events-none h-12"
+        style="
+          background: linear-gradient(to top, var(--app-bg) 0%, transparent 100%);
+          opacity: {showBottomFade ? 1 : 0};
+          transition: opacity 0.3s ease;
+        "
+      ></div>
+
+      <div
+        class="absolute inset-0 overflow-y-auto"
+        bind:this={statsEl}
+        onscroll={updateFades}
       >
-        <span class="text-xs" style="color: var(--app-muted)">Días:</span>
-        {#each [["Sin visitar", "no"], ["1–7", "low"], ["8–29", "mid"], ["30–89", "high"], ["90+", "top"]] as [label, level]}
-          {@const color =
-            level === "no"
-              ? "var(--app-track)"
-              : level === "low"
-                ? "rgba(186,230,253,0.8)"
-                : level === "mid"
-                  ? "#7dd3fc"
-                  : level === "high"
-                    ? "#0284c7"
-                    : "var(--app-accent)"}
-          <span
-            class="flex items-center gap-1 text-xs"
-            style="color: var(--app-muted)"
-          >
-            <span
-              class="inline-block w-3 h-3 rounded-sm"
-              style="background:{color}"
-            ></span>
-            {label}
-          </span>
-        {/each}
-      </div>
-
-      <!-- Stats grid -->
-      <div class="px-4 pt-3 pb-2">
-        {#if periodLabel}
-          <p
-            class="text-xs mb-2 font-mono tracking-wide"
-            style="color: var(--app-accent); opacity: 0.75"
-          >
-            {periodLabel}
-          </p>
-        {/if}
-        <div class="grid grid-cols-3 gap-3">
-          <div
-            class="rounded-xl p-3 text-center"
-            style="background: var(--app-surface)"
-          >
-            <p
-              class="text-2xl font-bold tabular-nums"
-              style="color: var(--app-fg)"
-            >
-              {Math.round($tweenedCountries)}
-            </p>
-            <p class="text-xs mt-1" style="color: var(--app-muted)">países</p>
-          </div>
-          <div
-            class="rounded-xl p-3 text-center"
-            style="background: var(--app-surface)"
-          >
-            <p
-              class="text-2xl font-bold tabular-nums"
-              style="color: var(--app-fg)"
-            >
-              {Math.round($tweenedDays)}
-            </p>
-            <p class="text-xs mt-1" style="color: var(--app-muted)">días</p>
-          </div>
-          <div
-            class="rounded-xl p-3 text-center"
-            style="background: var(--app-surface)"
-          >
-            <p
-              class="text-2xl font-bold tabular-nums"
-              style="color: var(--app-fg)"
-            >
-              {Math.round($tweenedCoverage)}%
-            </p>
-            <p class="text-xs mt-1" style="color: var(--app-muted)">
-              del mundo
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {#if longestStreak && longestStreak.days > 1}
+        <!-- Legend strip -->
         <div
-          class="mx-4 mb-3 rounded-xl px-4 py-3 flex items-center justify-between"
-          style="background: var(--app-surface)"
+          class="flex items-center gap-2 px-4 pt-2.5 pb-1.5 flex-wrap border-b"
+          style="border-color: var(--app-border)"
         >
-          <span class="text-sm" style="color: var(--app-muted)"
-            >Racha más larga</span
-          >
-          <span class="font-medium text-sm" style="color: var(--app-fg)"
-            >{longestStreak.days} días en {longestStreak.country}</span
-          >
-        </div>
-      {/if}
-
-      <!-- Top países -->
-      <div class="px-4 pb-5">
-        <p
-          class="text-xs uppercase tracking-wider mb-3"
-          style="color: var(--app-muted)"
-        >
-          Top países
-        </p>
-        <div class="space-y-2">
-          {#each topCountries as stat, i (stat.isoCountryCode)}
-            <div
-              class="flex items-center gap-3"
-              transition:fade={{ duration: 200 }}
+          <span class="text-xs" style="color: var(--app-muted)">Días:</span>
+          {#each [["Sin visitar", "no"], ["1–7", "low"], ["8–29", "mid"], ["30–89", "high"], ["90+", "top"]] as [label, level]}
+            {@const color =
+              level === "no"
+                ? "var(--app-track)"
+                : level === "low"
+                  ? "rgba(186,230,253,0.8)"
+                  : level === "mid"
+                    ? "#7dd3fc"
+                    : level === "high"
+                      ? "#0284c7"
+                      : "var(--app-accent)"}
+            <span
+              class="flex items-center gap-1 text-xs"
+              style="color: var(--app-muted)"
             >
               <span
-                class="text-xs w-4 text-right"
-                style="color: var(--app-muted); opacity: 0.6">{i + 1}</span
-              >
-              <span class="text-xl leading-none"
-                >{flagEmoji(stat.isoCountryCode)}</span
-              >
-              <span class="flex-1 text-sm truncate" style="color: var(--app-fg)"
-                >{stat.country}</span
-              >
-              <span class="text-sm font-mono" style="color: var(--app-muted)"
-                >{stat.days}d</span
-              >
-              <div
-                class="w-16 h-1.5 rounded-full overflow-hidden"
-                style="background: var(--app-track)"
-              >
-                <div
-                  class="h-full rounded-full transition-[width] duration-300"
-                  style="width: {Math.round(
-                    (stat.days / topCountries[0].days) * 100,
-                  )}%; background: var(--app-accent)"
-                ></div>
-              </div>
-            </div>
+                class="inline-block w-3 h-3 rounded-sm"
+                style="background:{color}"
+              ></span>
+              {label}
+            </span>
           {/each}
         </div>
 
-        {#if entriesStore.totalCountries > 5}
-          <a
-            href="/passport"
-            class="block mt-4 text-center text-xs transition-opacity hover:opacity-60"
+        <!-- Stats grid -->
+        <div class="px-4 pt-3 pb-2">
+          {#if periodLabel}
+            <p
+              class="text-xs mb-2 font-mono tracking-wide"
+              style="color: var(--app-accent); opacity: 0.75"
+            >
+              {periodLabel}
+            </p>
+          {/if}
+          <div class="grid grid-cols-3 gap-3">
+            <div
+              class="rounded-xl p-3 text-center"
+              style="background: var(--app-surface)"
+            >
+              <p
+                class="text-2xl font-bold tabular-nums"
+                style="color: var(--app-fg)"
+              >
+                {Math.round($tweenedCountries)}
+              </p>
+              <p class="text-xs mt-1" style="color: var(--app-muted)">países</p>
+            </div>
+            <div
+              class="rounded-xl p-3 text-center"
+              style="background: var(--app-surface)"
+            >
+              <p
+                class="text-2xl font-bold tabular-nums"
+                style="color: var(--app-fg)"
+              >
+                {Math.round($tweenedDays)}
+              </p>
+              <p class="text-xs mt-1" style="color: var(--app-muted)">días</p>
+            </div>
+            <div
+              class="rounded-xl p-3 text-center"
+              style="background: var(--app-surface)"
+            >
+              <p
+                class="text-2xl font-bold tabular-nums"
+                style="color: var(--app-fg)"
+              >
+                {Math.round($tweenedCoverage)}%
+              </p>
+              <p class="text-xs mt-1" style="color: var(--app-muted)">
+                del mundo
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {#if longestStreak && longestStreak.days > 1}
+          <div
+            class="mx-4 mb-3 rounded-xl px-4 py-3 flex items-center justify-between"
+            style="background: var(--app-surface)"
+          >
+            <span class="text-sm" style="color: var(--app-muted)"
+              >Racha más larga</span
+            >
+            <span class="font-medium text-sm" style="color: var(--app-fg)"
+              >{longestStreak.days} días en {longestStreak.country}</span
+            >
+          </div>
+        {/if}
+
+        <!-- Top países -->
+        <div class="px-4 pb-5">
+          <p
+            class="text-xs uppercase tracking-wider mb-3"
             style="color: var(--app-muted)"
           >
-            Ver todos los {entriesStore.totalCountries} países →
-          </a>
-        {/if}
+            Top países
+          </p>
+          <div class="space-y-2">
+            {#each topCountries as stat, i (stat.isoCountryCode)}
+              <div
+                class="flex items-center gap-3"
+                transition:fade={{ duration: 200 }}
+              >
+                <span
+                  class="text-xs w-4 text-right"
+                  style="color: var(--app-muted); opacity: 0.6">{i + 1}</span
+                >
+                <span class="text-xl leading-none"
+                  >{flagEmoji(stat.isoCountryCode)}</span
+                >
+                <span
+                  class="flex-1 text-sm truncate"
+                  style="color: var(--app-fg)">{stat.country}</span
+                >
+                <span class="text-sm font-mono" style="color: var(--app-muted)"
+                  >{stat.days}d</span
+                >
+                <div
+                  class="w-16 h-1.5 rounded-full overflow-hidden"
+                  style="background: var(--app-track)"
+                >
+                  <div
+                    class="h-full rounded-full transition-[width] duration-300"
+                    style="width: {Math.round(
+                      (stat.days / topCountries[0].days) * 100,
+                    )}%; background: var(--app-accent)"
+                  ></div>
+                </div>
+              </div>
+            {/each}
+          </div>
+
+          {#if entriesStore.totalCountries > 5}
+            <a
+              href="/passport"
+              class="block mt-4 text-center text-xs transition-opacity hover:opacity-60"
+              style="color: var(--app-muted)"
+            >
+              Ver todos los {entriesStore.totalCountries} países →
+            </a>
+          {/if}
+        </div>
       </div>
+      <!-- end inner scroll -->
     </div>
+    <!-- end stats zone -->
 
     <!-- ── Timeline zone (always visible) ─────────────────────────────── -->
     <div
