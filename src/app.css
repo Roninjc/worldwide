@@ -1,1 +1,79 @@
 @import 'tailwindcss';
+
+/* ── Theme tokens ─────────────────────────────────────────────────── */
+:root {
+	--app-bg: #0f172a;
+	--app-surface: rgba(30, 41, 59, 0.65);
+	--app-surface-2: rgba(30, 41, 59, 0.92);
+	--app-border: rgba(255, 255, 255, 0.07);
+	--app-fg: #f1f5f9;
+	--app-muted: #64748b;
+	--app-accent: #38bdf8;
+	--app-accent-subtle: rgba(56, 189, 248, 0.10);
+	--app-track: rgba(255, 255, 255, 0.08);
+	--map-bg: #020617;
+	--map-stroke: #0f172a;
+
+	/* Glass */
+	--glass-bg: rgba(15, 23, 42, 0.82);
+	--glass-border: rgba(255, 255, 255, 0.13);
+	--glass-shadow: 0 8px 32px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.07);
+
+	/* Hero gradient */
+	--hero-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+	--hero-border: rgba(255, 255, 255, 0.07);
+
+	/* Status banners */
+	--warn-bg: rgba(120, 53, 15, 0.30);
+	--warn-border: rgba(180, 83, 9, 0.55);
+	--warn-title: #fbbf24;
+	--warn-body: rgba(251, 191, 36, 0.65);
+	--ok-bg: rgba(5, 46, 22, 0.35);
+	--ok-border: rgba(22, 101, 52, 0.60);
+	--ok-title: #86efac;
+	--ok-body: rgba(134, 239, 172, 0.65);
+	--err-bg: rgba(69, 10, 10, 0.35);
+	--err-border: rgba(127, 29, 29, 0.60);
+	--err-text: #fca5a5;
+
+	/* Nav positioning — safe area aware */
+	--nav-bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
+	--nav-height: 56px;
+	--nav-clearance: calc(var(--nav-height) + var(--nav-bottom) + 16px);
+}
+
+[data-theme="light"] {
+	--app-bg: #f1f5f9;
+	--app-surface: rgba(255, 255, 255, 0.85);
+	--app-surface-2: rgba(248, 250, 252, 0.96);
+	--app-border: rgba(0, 0, 0, 0.07);
+	--app-fg: #0f172a;
+	--app-muted: #64748b;
+	--app-accent: #0284c7;
+	--app-accent-subtle: rgba(2, 132, 199, 0.10);
+	--app-track: rgba(0, 0, 0, 0.08);
+	--map-bg: #dde8f0;
+	--map-stroke: #94a3b8;
+
+	/* Hero gradient */
+	--hero-gradient: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(241,245,249,0.85) 100%);
+	--hero-border: rgba(0, 0, 0, 0.06);
+
+	/* Status banners */
+	--warn-bg: rgba(255, 251, 235, 0.95);
+	--warn-border: rgba(217, 119, 6, 0.40);
+	--warn-title: #92400e;
+	--warn-body: rgba(120, 53, 15, 0.75);
+	--ok-bg: rgba(240, 253, 244, 0.95);
+	--ok-border: rgba(22, 163, 74, 0.40);
+	--ok-title: #166534;
+	--ok-body: rgba(22, 101, 52, 0.75);
+	--err-bg: rgba(255, 241, 242, 0.95);
+	--err-border: rgba(220, 38, 38, 0.40);
+	--err-text: #991b1b;
+
+	/* Glass */
+	--glass-bg: rgba(255, 255, 255, 0.78);
+	--glass-border: rgba(255, 255, 255, 0.95);
+	--glass-shadow: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90);
+}

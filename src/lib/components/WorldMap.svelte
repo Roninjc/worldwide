@@ -5,6 +5,7 @@
 	import type { Topology } from 'topojson-specification';
 	import { numericToAlpha2, getName, registerLocale } from 'i18n-iso-countries';
 	import enLocale from 'i18n-iso-countries/langs/en.json';
+	import { themeStore } from '$lib/themeStore.svelte';
 	registerLocale(enLocale);
 
 	interface MapAPI {
@@ -43,6 +44,13 @@
 
 	function countryColor(alpha2: string): string {
 		const days = daysByCountry.get(alpha2) ?? 0;
+		if (themeStore.current === 'light') {
+			if (days === 0) return '#cbd5e1';
+			if (days < 8) return '#bae6fd';
+			if (days < 30) return '#7dd3fc';
+			if (days < 90) return '#0284c7';
+			return '#0369a1';
+		}
 		if (days === 0) return '#1e293b';
 		if (days < 8) return '#164e63';
 		if (days < 30) return '#0c6a8a';
@@ -75,7 +83,7 @@
 			.join('path')
 			.attr('d', pathGen as any)
 			.attr('fill', (d: any) => countryColor(alpha2FromFeature(d)))
-			.attr('stroke', '#0f172a')
+			.attr('stroke', themeStore.current === 'light' ? '#94a3b8' : '#0f172a')
 			.attr('stroke-width', 0.4 / currentTransform.k)
 			.on('mousemove', (event: MouseEvent, d: any) => {
 				const alpha2 = alpha2FromFeature(d);
@@ -134,10 +142,12 @@
 	// ── Update only fill colors ──────────────────────────────────────────
 	function updateColors(duration: number) {
 		if (!g) return;
+		const stroke = themeStore.current === 'light' ? '#94a3b8' : '#0f172a';
 		g.selectAll<SVGPathElement, any>('path')
 			.transition()
 			.duration(duration)
-			.attr('fill', (d: any) => countryColor(alpha2FromFeature(d)));
+			.attr('fill', (d: any) => countryColor(alpha2FromFeature(d)))
+			.attr('stroke', stroke);
 	}
 
 	// ── Zoom to visited countries ────────────────────────────────────────
@@ -213,9 +223,10 @@
 		};
 	});
 
-	// ── Animate colors on data change, build paths on first render ───────
+	// ── Animate colors on data/theme change, build paths on first render ──
 	$effect(() => {
-		const _data = daysByCountry; // track as reactive dependency
+		const _data = daysByCountry;
+		const _theme = themeStore.current; // track as reactive dependency
 		if (!svgEl || !worldData || !container) return;
 		if (!g) {
 			buildPaths();
@@ -241,9 +252,8 @@
 			<!-- Zoom to visited -->
 			{#if daysByCountry.size > 0}
 				<button
-					class="w-8 h-8 flex items-center justify-center rounded-lg
-						bg-slate-800/90 hover:bg-slate-700 border border-slate-600/60
-						text-slate-300 text-sm shadow-lg backdrop-blur-sm transition-colors"
+					class="w-8 h-8 flex items-center justify-center rounded-lg shadow-lg transition-opacity hover:opacity-70"
+					style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--app-fg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
 					title="Zoom a países visitados"
 					onclick={zoomToVisited}
 				>
@@ -257,9 +267,8 @@
 			<!-- Reset zoom (only when zoomed) -->
 			{#if zoomScale > 1.05}
 				<button
-					class="w-8 h-8 flex items-center justify-center rounded-lg
-						bg-slate-800/90 hover:bg-slate-700 border border-slate-600/60
-						text-slate-300 text-sm shadow-lg backdrop-blur-sm transition-colors"
+					class="w-8 h-8 flex items-center justify-center rounded-lg shadow-lg transition-opacity hover:opacity-70"
+					style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--app-fg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
 					title="Vista global"
 					onclick={resetZoom}
 				>
@@ -275,13 +284,19 @@
 
 	{#if tooltip}
 		<div
-			class="pointer-events-none absolute z-10 px-3 py-2 bg-slate-800 border border-slate-700
-				rounded-lg text-sm shadow-xl"
-			style="left: {Math.min(tooltip.x + 12, (container?.clientWidth ?? 300) - 160)}px;
-				top: {Math.max(tooltip.y - 56, 4)}px"
+			class="pointer-events-none absolute z-10 px-3 py-2 rounded-lg text-sm shadow-xl"
+			style="
+				left: {Math.min(tooltip.x + 12, (container?.clientWidth ?? 300) - 160)}px;
+				top: {Math.max(tooltip.y - 56, 4)}px;
+				background: var(--glass-bg);
+				border: 1px solid var(--glass-border);
+				color: var(--app-fg);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+			"
 		>
-			<p class="font-medium text-white">{tooltip.name}</p>
-			<p class="text-slate-400 text-xs">
+			<p class="font-medium">{tooltip.name}</p>
+			<p class="text-xs" style="color: var(--app-muted)">
 				{tooltip.days > 0 ? `${tooltip.days} día${tooltip.days === 1 ? '' : 's'}` : 'Sin visitar'}
 			</p>
 		</div>

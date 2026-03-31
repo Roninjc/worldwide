@@ -18,7 +18,6 @@
     "Antarctica",
   ];
 
-  // Group visited countries by continent
   const byContinent = $derived(() => {
     const map = new Map<Continent, CountryStat[]>();
     for (const stat of entriesStore.countryStats) {
@@ -39,7 +38,6 @@
     return new Date(stat.firstVisit).getFullYear();
   }
 
-  // Which continents are expanded (all by default if visited)
   let expanded = $state<Set<Continent>>(new Set(CONTINENT_ORDER));
 
   function toggle(c: Continent) {
@@ -53,35 +51,35 @@
 <div class="flex-1 overflow-y-auto">
   <div class="px-4 py-6 max-w-2xl mx-auto space-y-6">
     <div>
-      <h1 class="text-2xl font-bold">Passport</h1>
-      <p class="text-slate-400 text-sm mt-1">Tu progreso por el mundo</p>
+      <h1 class="text-2xl font-bold" style="color: var(--app-fg)">Passport</h1>
+      <p class="text-sm mt-1" style="color: var(--app-muted)">Tu progreso por el mundo</p>
     </div>
 
     {#if entriesStore.totalDays === 0}
-      <p class="text-slate-500 text-sm">
-        Sin datos. <a href="/sync" class="underline">Importa tus JSONs</a>.
+      <p class="text-sm" style="color: var(--app-muted)">
+        Sin datos. <a href="/sync" class="underline" style="color: var(--app-accent)">Importa tus JSONs</a>.
       </p>
     {:else}
       <!-- Global progress -->
-      <div class="bg-slate-800/60 rounded-2xl p-5 space-y-3">
+      <div class="rounded-2xl p-5 space-y-3" style="background: var(--app-surface)">
         <div class="flex items-end justify-between">
           <div>
-            <p class="text-4xl font-bold text-white">
+            <p class="text-4xl font-bold" style="color: var(--app-fg)">
               {entriesStore.totalCountries}
             </p>
-            <p class="text-slate-400 text-sm">
+            <p class="text-sm" style="color: var(--app-muted)">
               de {totalCountriesInWorld} países
             </p>
           </div>
-          <p class="text-5xl font-black text-slate-700">{coveragePct}%</p>
+          <p class="text-5xl font-black" style="color: var(--app-fg); opacity: 0.15">{coveragePct}%</p>
         </div>
-        <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div class="h-2 rounded-full overflow-hidden" style="background: var(--app-track)">
           <div
-            class="h-full bg-gradient-to-r from-sky-500 to-blue-400 rounded-full transition-all"
-            style="width: {coveragePct}%"
+            class="h-full rounded-full transition-all"
+            style="width: {coveragePct}%; background: var(--app-accent)"
           ></div>
         </div>
-        <p class="text-slate-500 text-xs">
+        <p class="text-xs" style="color: var(--app-muted)">
           {totalCountriesInWorld - entriesStore.totalCountries} países por descubrir
         </p>
       </div>
@@ -95,63 +93,42 @@
           {@const pct = Math.round((visited / total) * 100)}
           {@const isExpanded = expanded.has(continent)}
 
-          <div class="bg-slate-800/40 rounded-xl overflow-hidden">
+          <div class="rounded-xl overflow-hidden" style="background: var(--app-surface)">
             <!-- Continent header -->
             <button
-              class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-700/30 transition-colors"
+              class="w-full flex items-center gap-3 px-4 py-3 text-left transition-opacity hover:opacity-75"
               onclick={() => toggle(continent)}
             >
               <div class="flex-1 min-w-0">
                 <div class="flex items-baseline gap-2">
-                  <span class="font-medium text-slate-200 text-sm">
+                  <span class="font-medium text-sm" style="color: var(--app-fg)">
                     {CONTINENT_LABELS[continent]}
                   </span>
-                  <span class="text-slate-500 text-xs">{visited}/{total}</span>
+                  <span class="text-xs" style="color: var(--app-muted)">{visited}/{total}</span>
                 </div>
-                <!-- Mini progress bar -->
-                <div
-                  class="h-1 bg-slate-700 rounded-full mt-1.5 overflow-hidden"
-                >
+                <div class="h-1 rounded-full mt-1.5 overflow-hidden" style="background: var(--app-track)">
                   <div
                     class="h-full rounded-full transition-all"
-                    class:bg-sky-500={pct > 50}
-                    class:bg-blue-400={pct > 25 && pct <= 50}
-                    class:bg-slate-500={pct <= 25 && pct > 0}
-                    class:bg-slate-700={pct === 0}
-                    style="width: {Math.max(pct, pct > 0 ? 2 : 0)}%"
+                    style="width: {Math.max(pct, pct > 0 ? 2 : 0)}%; background: var(--app-accent); opacity: {pct > 50 ? 1 : pct > 25 ? 0.75 : pct > 0 ? 0.5 : 0}"
                   ></div>
                 </div>
               </div>
-              <span class="text-slate-600 text-xs font-mono w-8 text-right"
-                >{pct}%</span
-              >
-              <span class="text-slate-600 text-xs ml-1"
-                >{isExpanded ? "▲" : "▼"}</span
-              >
+              <span class="text-xs font-mono w-8 text-right" style="color: var(--app-muted)">{pct}%</span>
+              <span class="text-xs ml-1" style="color: var(--app-muted); opacity: 0.5">{isExpanded ? "▲" : "▼"}</span>
             </button>
 
             <!-- Country list -->
             {#if isExpanded && visited > 0}
-              <div class="border-t border-slate-700/50">
+              <div class="border-t" style="border-color: var(--app-border)">
                 {#each countries as stat, i}
                   <div
-                    class="flex items-center gap-3 px-4 py-2.5 text-sm
-										{i < countries.length - 1 ? 'border-b border-slate-700/30' : ''}"
+                    class="flex items-center gap-3 px-4 py-2.5 text-sm"
+                    style="{i < countries.length - 1 ? `border-bottom: 1px solid var(--app-border)` : ''}"
                   >
-                    <span class="text-lg leading-none"
-                      >{flagEmoji(stat.isoCountryCode)}</span
-                    >
-                    <span class="flex-1 text-slate-300 truncate"
-                      >{stat.country}</span
-                    >
-                    <span class="text-slate-500 text-xs"
-                      >{firstVisitYear(stat)}</span
-                    >
-                    <div
-                      class="flex items-center gap-1.5 text-slate-400 text-xs w-16 justify-end"
-                    >
-                      <span class="font-mono">{stat.days}d</span>
-                    </div>
+                    <span class="text-lg leading-none">{flagEmoji(stat.isoCountryCode)}</span>
+                    <span class="flex-1 truncate" style="color: var(--app-fg)">{stat.country}</span>
+                    <span class="text-xs" style="color: var(--app-muted)">{firstVisitYear(stat)}</span>
+                    <span class="font-mono text-xs w-16 text-right" style="color: var(--app-muted)">{stat.days}d</span>
                   </div>
                 {/each}
               </div>

@@ -15,7 +15,6 @@
 	);
 
 	onMount(async () => {
-		// Auto-import when coming from Web Share Target
 		if ($page.url.searchParams.get('shared') === '1') {
 			const files = await consumePendingFiles();
 			if (files.length > 0) await handleFiles(files);
@@ -57,14 +56,14 @@
 <div class="flex-1 overflow-y-auto">
 <div class="max-w-lg mx-auto px-4 py-8 space-y-8">
 	<div>
-		<h1 class="text-2xl font-bold">Sincronizar datos</h1>
-		<p class="text-slate-400 text-sm mt-1">Importa tus archivos JSON de Scriptable</p>
+		<h1 class="text-2xl font-bold" style="color: var(--app-fg)">Sincronizar datos</h1>
+		<p class="text-sm mt-1" style="color: var(--app-muted)">Importa tus archivos JSON de Scriptable</p>
 	</div>
 
 	{#if !isInstalled}
-		<div class="bg-amber-900/40 border border-amber-700 rounded-xl p-4 space-y-2">
-			<p class="font-medium text-amber-300 text-sm">Instala la app para sincronización automática</p>
-			<p class="text-amber-200/70 text-xs">
+		<div class="rounded-xl p-4 space-y-2" style="background: var(--warn-bg); border: 1px solid var(--warn-border)">
+			<p class="font-medium text-sm" style="color: var(--warn-title)">Instala la app para sincronización automática</p>
+			<p class="text-xs" style="color: var(--warn-body)">
 				En Safari, toca <strong>Compartir →</strong>
 				<strong>"Añadir a pantalla de inicio"</strong>. Una vez instalada, puedes compartir
 				los JSON directamente desde Scriptable sin pasos extra.
@@ -73,7 +72,7 @@
 	{/if}
 
 	{#if importing}
-		<div class="text-center text-slate-400 py-8">
+		<div class="text-center py-8" style="color: var(--app-muted)">
 			<p class="text-2xl mb-2">⏳</p>
 			Importando…
 		</div>
@@ -82,8 +81,11 @@
 		<div
 			role="button"
 			tabindex="0"
-			class="border-2 border-dashed rounded-xl p-10 text-center transition-colors cursor-pointer
-				{isDragging ? 'border-blue-400 bg-blue-900/20' : 'border-slate-700 hover:border-slate-500'}"
+			class="rounded-xl p-10 text-center transition-all cursor-pointer"
+			style="
+				border: 2px dashed {isDragging ? 'var(--app-accent)' : 'var(--app-border)'};
+				background: {isDragging ? 'var(--app-accent-subtle)' : 'transparent'};
+			"
 			ondragover={(e) => { e.preventDefault(); isDragging = true; }}
 			ondragleave={() => { isDragging = false; }}
 			ondrop={onDrop}
@@ -91,9 +93,9 @@
 			onkeydown={(e) => e.key === 'Enter' && document.getElementById('file-input')?.click()}
 		>
 			<p class="text-4xl mb-3">📂</p>
-			<p class="text-slate-300 font-medium">Arrastra tus archivos JSON aquí</p>
-			<p class="text-slate-500 text-sm mt-1">o toca para seleccionar</p>
-			<p class="text-slate-600 text-xs mt-3">locationsStore2023.json, locationsStore2024.json…</p>
+			<p class="font-medium" style="color: var(--app-fg)">Arrastra tus archivos JSON aquí</p>
+			<p class="text-sm mt-1" style="color: var(--app-muted)">o toca para seleccionar</p>
+			<p class="text-xs mt-3" style="color: var(--app-muted); opacity: 0.5">locationsStore2023.json, locationsStore2024.json…</p>
 		</div>
 
 		<input
@@ -107,34 +109,34 @@
 	{/if}
 
 	{#if result}
-		<div class="bg-green-900/40 border border-green-700 rounded-xl p-4">
-			<p class="font-medium text-green-300">Importación completada</p>
-			<p class="text-green-200/70 text-sm mt-1">
+		<div class="rounded-xl p-4" style="background: var(--ok-bg); border: 1px solid var(--ok-border)">
+			<p class="font-medium" style="color: var(--ok-title)">Importación completada</p>
+			<p class="text-sm mt-1" style="color: var(--ok-body)">
 				{result.imported} entradas nuevas de {result.total} totales
 			</p>
 		</div>
 	{/if}
 
 	{#if error}
-		<div class="bg-red-900/40 border border-red-700 rounded-xl p-4">
-			<p class="text-red-300 text-sm">{error}</p>
+		<div class="rounded-xl p-4" style="background: var(--err-bg); border: 1px solid var(--err-border)">
+			<p class="text-sm" style="color: var(--err-text)">{error}</p>
 		</div>
 	{/if}
 
 	{#if entriesStore.totalDays > 0}
-		<div class="border border-slate-800 rounded-xl p-4 space-y-3">
-			<p class="text-slate-400 text-xs uppercase tracking-wider">Datos almacenados</p>
+		<div class="rounded-xl p-4 space-y-3" style="border: 1px solid var(--app-border)">
+			<p class="text-xs uppercase tracking-wider" style="color: var(--app-muted)">Datos almacenados</p>
 			<div class="flex justify-between text-sm">
-				<span class="text-slate-300">Entradas totales</span>
-				<span class="font-mono text-white">{entriesStore.totalDays}</span>
+				<span style="color: var(--app-fg)">Entradas totales</span>
+				<span class="font-mono" style="color: var(--app-fg)">{entriesStore.totalDays}</span>
 			</div>
 			<div class="flex justify-between text-sm">
-				<span class="text-slate-300">Países distintos</span>
-				<span class="font-mono text-white">{entriesStore.totalCountries}</span>
+				<span style="color: var(--app-fg)">Países distintos</span>
+				<span class="font-mono" style="color: var(--app-fg)">{entriesStore.totalCountries}</span>
 			</div>
 			<div class="flex justify-between text-sm">
-				<span class="text-slate-300">Años</span>
-				<span class="font-mono text-white">{entriesStore.years.join(', ')}</span>
+				<span style="color: var(--app-fg)">Años</span>
+				<span class="font-mono" style="color: var(--app-fg)">{entriesStore.years.join(', ')}</span>
 			</div>
 		</div>
 	{/if}

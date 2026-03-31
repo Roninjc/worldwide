@@ -279,50 +279,67 @@
 {#if timelineTooltip}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="fixed z-50 pointer-events-none px-3 py-2 rounded-lg text-xs
-			bg-slate-900 border border-slate-600 shadow-2xl whitespace-nowrap"
-		style="left: {Math.min(timelineTooltip.x + 12, window.innerWidth - 210)}px; top: {timelineTooltip.y - 64}px"
+		class="fixed z-50 pointer-events-none px-3 py-2 rounded-lg text-xs shadow-2xl whitespace-nowrap"
+		style="
+			left: {Math.min(timelineTooltip.x + 12, window.innerWidth - 210)}px;
+			top: {timelineTooltip.y - 64}px;
+			background: var(--glass-bg);
+			border: 1px solid var(--glass-border);
+			color: var(--app-fg);
+			backdrop-filter: blur(16px);
+			-webkit-backdrop-filter: blur(16px);
+		"
 	>
-		<p class="font-semibold text-white">{flagEmoji(timelineTooltip.stay.isoCountryCode)} {timelineTooltip.stay.country}</p>
-		<p class="text-slate-400 mt-0.5">{formatDate(timelineTooltip.stay.startDate)} → {formatDate(timelineTooltip.stay.endDate)}</p>
-		<p class="text-slate-300 font-mono mt-0.5">{timelineTooltip.stay.days} día{timelineTooltip.stay.days === 1 ? '' : 's'}</p>
+		<p class="font-semibold">{flagEmoji(timelineTooltip.stay.isoCountryCode)} {timelineTooltip.stay.country}</p>
+		<p class="mt-0.5" style="color: var(--app-muted)">{formatDate(timelineTooltip.stay.startDate)} → {formatDate(timelineTooltip.stay.endDate)}</p>
+		<p class="font-mono mt-0.5" style="color: var(--app-fg)">{timelineTooltip.stay.days} día{timelineTooltip.stay.days === 1 ? '' : 's'}</p>
 	</div>
 {/if}
 
 <div class="flex-1 flex flex-col overflow-hidden relative">
 	{#if !entriesStore.loaded}
-		<div class="flex-1 flex items-center justify-center text-slate-500">Cargando…</div>
+		<div class="flex-1 flex items-center justify-center text-sm" style="color: var(--app-muted)">Cargando…</div>
 
 	{:else if entriesStore.totalDays === 0}
 		<div class="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
 			<p class="text-5xl">🌍</p>
-			<h2 class="text-xl font-bold">Sin datos todavía</h2>
-			<p class="text-slate-400 text-sm">Importa tus archivos JSON de Scriptable para empezar.</p>
+			<h2 class="text-xl font-bold" style="color: var(--app-fg)">Sin datos todavía</h2>
+			<p class="text-sm" style="color: var(--app-muted)">Importa tus archivos JSON de Scriptable para empezar.</p>
 			<a
 				href="/sync"
-				class="mt-2 px-5 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors"
+				class="mt-2 px-5 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+				style="background: var(--app-accent); color: #ffffff"
 			>
 				Ir a Sync
 			</a>
 		</div>
 
 	{:else}
-		<!-- ── Top: scrollable map + stats ─────────────────────────────────── -->
-		<div class="flex-1 overflow-y-auto">
-			<!-- Map -->
-			<div class="bg-slate-950 px-0 pt-2">
-				<WorldMap
-					daysByCountry={filteredDaysByCountry}
-					{onCountryClick}
-					bind:api={mapApi}
-				/>
-			</div>
+		<!-- ── Map zone (sized by SVG aspect ratio) ───────────────────────── -->
+		<div class="flex-shrink-0 overflow-hidden relative" style="background: var(--map-bg)">
+			<WorldMap
+				daysByCountry={filteredDaysByCountry}
+				{onCountryClick}
+				bind:api={mapApi}
+			/>
+		</div>
 
-			<!-- Map legend -->
-			<div class="flex items-center gap-2 px-4 pt-2 pb-1 flex-wrap">
-				<span class="text-slate-500 text-xs">Días:</span>
-				{#each [['Sin visitar', '#1e293b'], ['1–7', '#164e63'], ['8–29', '#0c6a8a'], ['30–89', '#0284c7'], ['90+', '#38bdf8']] as [label, color]}
-					<span class="flex items-center gap-1 text-xs text-slate-400">
+		<!-- ── Stats zone (scrollable) ────────────────────────────────────── -->
+		<div class="flex-1 min-h-0 overflow-y-auto">
+			<!-- Legend strip -->
+			<div class="flex items-center gap-2 px-4 pt-2.5 pb-1.5 flex-wrap border-b" style="border-color: var(--app-border)">
+				<span class="text-xs" style="color: var(--app-muted)">Días:</span>
+				{#each [['Sin visitar', 'no'], ['1–7', 'low'], ['8–29', 'mid'], ['30–89', 'high'], ['90+', 'top']] as [label, level]}
+					{@const color = level === 'no'
+						? 'var(--app-track)'
+						: level === 'low'
+						? 'rgba(186,230,253,0.8)'
+						: level === 'mid'
+						? '#7dd3fc'
+						: level === 'high'
+						? '#0284c7'
+						: 'var(--app-accent)'}
+					<span class="flex items-center gap-1 text-xs" style="color: var(--app-muted)">
 						<span class="inline-block w-3 h-3 rounded-sm" style="background:{color}"></span>
 						{label}
 					</span>
@@ -332,45 +349,45 @@
 			<!-- Stats grid -->
 			<div class="px-4 pt-3 pb-2">
 				{#if periodLabel}
-					<p class="text-xs text-sky-400/70 mb-2 font-mono tracking-wide">{periodLabel}</p>
+					<p class="text-xs mb-2 font-mono tracking-wide" style="color: var(--app-accent); opacity: 0.75">{periodLabel}</p>
 				{/if}
 				<div class="grid grid-cols-3 gap-3">
-					<div class="bg-slate-800/60 rounded-xl p-3 text-center">
-						<p class="text-2xl font-bold text-white tabular-nums">{Math.round($tweenedCountries)}</p>
-						<p class="text-slate-400 text-xs mt-1">países</p>
+					<div class="rounded-xl p-3 text-center" style="background: var(--app-surface)">
+						<p class="text-2xl font-bold tabular-nums" style="color: var(--app-fg)">{Math.round($tweenedCountries)}</p>
+						<p class="text-xs mt-1" style="color: var(--app-muted)">países</p>
 					</div>
-					<div class="bg-slate-800/60 rounded-xl p-3 text-center">
-						<p class="text-2xl font-bold text-white tabular-nums">{Math.round($tweenedDays)}</p>
-						<p class="text-slate-400 text-xs mt-1">días</p>
+					<div class="rounded-xl p-3 text-center" style="background: var(--app-surface)">
+						<p class="text-2xl font-bold tabular-nums" style="color: var(--app-fg)">{Math.round($tweenedDays)}</p>
+						<p class="text-xs mt-1" style="color: var(--app-muted)">días</p>
 					</div>
-					<div class="bg-slate-800/60 rounded-xl p-3 text-center">
-						<p class="text-2xl font-bold text-white tabular-nums">{Math.round($tweenedCoverage)}%</p>
-						<p class="text-slate-400 text-xs mt-1">del mundo</p>
+					<div class="rounded-xl p-3 text-center" style="background: var(--app-surface)">
+						<p class="text-2xl font-bold tabular-nums" style="color: var(--app-fg)">{Math.round($tweenedCoverage)}%</p>
+						<p class="text-xs mt-1" style="color: var(--app-muted)">del mundo</p>
 					</div>
 				</div>
 			</div>
 
 			{#if longestStreak && longestStreak.days > 1}
-				<div class="mx-4 mb-3 bg-slate-800/60 rounded-xl px-4 py-3 flex items-center justify-between">
-					<span class="text-slate-400 text-sm">Racha más larga</span>
-					<span class="font-medium text-white text-sm">{longestStreak.days} días en {longestStreak.country}</span>
+				<div class="mx-4 mb-3 rounded-xl px-4 py-3 flex items-center justify-between" style="background: var(--app-surface)">
+					<span class="text-sm" style="color: var(--app-muted)">Racha más larga</span>
+					<span class="font-medium text-sm" style="color: var(--app-fg)">{longestStreak.days} días en {longestStreak.country}</span>
 				</div>
 			{/if}
 
 			<!-- Top países -->
 			<div class="px-4 pb-5">
-				<p class="text-slate-500 text-xs uppercase tracking-wider mb-3">Top países</p>
+				<p class="text-xs uppercase tracking-wider mb-3" style="color: var(--app-muted)">Top países</p>
 				<div class="space-y-2">
 					{#each topCountries as stat, i (stat.isoCountryCode)}
 						<div class="flex items-center gap-3" transition:fade={{ duration: 200 }}>
-							<span class="text-slate-600 text-xs w-4 text-right">{i + 1}</span>
+							<span class="text-xs w-4 text-right" style="color: var(--app-muted); opacity: 0.6">{i + 1}</span>
 							<span class="text-xl leading-none">{flagEmoji(stat.isoCountryCode)}</span>
-							<span class="flex-1 text-sm text-slate-200 truncate">{stat.country}</span>
-							<span class="text-sm font-mono text-slate-300">{stat.days}d</span>
-							<div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+							<span class="flex-1 text-sm truncate" style="color: var(--app-fg)">{stat.country}</span>
+							<span class="text-sm font-mono" style="color: var(--app-muted)">{stat.days}d</span>
+							<div class="w-16 h-1.5 rounded-full overflow-hidden" style="background: var(--app-track)">
 								<div
-									class="h-full bg-sky-500 rounded-full transition-[width] duration-300"
-									style="width: {Math.round((stat.days / topCountries[0].days) * 100)}%"
+									class="h-full rounded-full transition-[width] duration-300"
+									style="width: {Math.round((stat.days / topCountries[0].days) * 100)}%; background: var(--app-accent)"
 								></div>
 							</div>
 						</div>
@@ -378,44 +395,45 @@
 				</div>
 
 				{#if entriesStore.totalCountries > 5}
-					<a href="/passport" class="block mt-4 text-center text-xs text-slate-500 hover:text-slate-300 transition-colors">
+					<a href="/passport" class="block mt-4 text-center text-xs transition-opacity hover:opacity-60" style="color: var(--app-muted)">
 						Ver todos los {entriesStore.totalCountries} países →
 					</a>
 				{/if}
 			</div>
 		</div>
 
-		<!-- ── Bottom: timeline panel ──────────────────────────────────────── -->
-		<div class="flex-shrink-0 border-t border-slate-800 bg-slate-900/95">
+		<!-- ── Timeline zone (always visible) ─────────────────────────────── -->
+		<div class="flex-shrink-0 border-t" style="border-color: var(--app-border); background: var(--app-bg)">
 			<!-- Controls row -->
 			<div class="px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">
 				<!-- Year + period indicator -->
 				<div class="flex items-center gap-1.5 min-w-0 text-xs">
-					<span class="font-mono text-slate-400">{visibleYear}</span>
+					<span class="font-mono" style="color: var(--app-muted)">{visibleYear}</span>
 					{#if periodLabel}
-						<span class="text-sky-500/50">·</span>
-						<span class="text-sky-400/60 font-mono truncate">{periodLabel}</span>
+						<span style="color: var(--app-accent); opacity: 0.5">·</span>
+						<span class="font-mono truncate" style="color: var(--app-accent); opacity: 0.65">{periodLabel}</span>
 					{/if}
 				</div>
 
 				<!-- Preset + zoom buttons -->
 				<div class="flex items-center gap-1.5 flex-shrink-0">
-					<div class="flex items-center rounded-lg overflow-hidden border border-slate-700 text-xs">
+					<div class="flex items-center rounded-lg overflow-hidden text-xs" style="border: 1px solid var(--app-border)">
 						{#each [['Todo', -1], ['1a', 365], ['6m', 182], ['1m', 30]] as [label, days]}
 							<button
-								class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 transition-colors text-slate-300 border-r border-slate-700 last:border-0"
+								class="px-2.5 py-1.5 transition-opacity hover:opacity-70 border-r last:border-0"
+								style="background: var(--app-surface-2); color: var(--app-muted); border-color: var(--app-border)"
 								onclick={() => setPreset(Number(days))}
 							>{label}</button>
 						{/each}
 					</div>
 					<button
-						class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700
-							border border-slate-700 text-slate-300 text-lg leading-none transition-colors"
+						class="w-8 h-8 flex items-center justify-center rounded-lg text-lg leading-none transition-opacity hover:opacity-70"
+						style="background: var(--app-surface-2); border: 1px solid var(--app-border); color: var(--app-muted)"
 						onclick={() => zoom(1 / 1.3)}
 					>−</button>
 					<button
-						class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700
-							border border-slate-700 text-slate-300 text-lg leading-none transition-colors"
+						class="w-8 h-8 flex items-center justify-center rounded-lg text-lg leading-none transition-opacity hover:opacity-70"
+						style="background: var(--app-surface-2); border: 1px solid var(--app-border); color: var(--app-muted)"
 						onclick={() => zoom(1.3)}
 					>+</button>
 				</div>
@@ -436,16 +454,16 @@
 
 					<!-- Year boundaries -->
 					{#each yearMarkers as { year, left }}
-						<div class="absolute top-0 bottom-0 border-l border-slate-600/60" style="left: {left}px">
-							<span class="absolute top-1 left-1.5 text-slate-400 text-xs font-bold select-none">{year}</span>
+						<div class="absolute top-0 bottom-0 border-l" style="left: {left}px; border-color: var(--app-border); opacity: 0.8">
+							<span class="absolute top-1 left-1.5 text-xs font-bold select-none" style="color: var(--app-muted)">{year}</span>
 						</div>
 					{/each}
 
 					<!-- Month gridlines -->
 					{#each monthMarkers as { label, left }}
-						<div class="absolute border-l border-slate-700/50 pointer-events-none" style="left: {left}px; top: 18px; bottom: 12px;"></div>
+						<div class="absolute border-l pointer-events-none" style="left: {left}px; top: 18px; bottom: 12px; border-color: var(--app-border); opacity: 0.6"></div>
 						{#if pxPerDay >= 5}
-							<span class="absolute text-[9px] text-slate-600 select-none" style="left: {left + 2}px; bottom: 2px">{label}</span>
+							<span class="absolute text-[9px] select-none" style="left: {left + 2}px; bottom: 2px; color: var(--app-muted); opacity: 0.6">{label}</span>
 						{/if}
 					{/each}
 
@@ -482,9 +500,12 @@
 		{#if selectedCountry && selectedStat}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
-				class="fixed inset-x-0 bottom-0 z-50 flex flex-col
-					bg-slate-900 border-t border-slate-700/80 rounded-t-2xl shadow-2xl"
-				style="max-height: 70%"
+				class="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl shadow-2xl"
+				style="
+					max-height: 70%;
+					background: var(--app-bg);
+					border-top: 1px solid var(--app-border);
+				"
 				in:fly={{ y: 420, duration: 320, easing: cubicOut }}
 				out:fly={{ y: 420, duration: 220 }}
 				ontouchstart={onSheetTouchStart}
@@ -492,21 +513,21 @@
 			>
 				<!-- Drag handle -->
 				<div class="flex justify-center pt-2.5 pb-1 flex-shrink-0 cursor-pointer" onclick={() => { selectedCountry = null; }}>
-					<div class="w-9 h-1 bg-slate-600 rounded-full"></div>
+					<div class="w-9 h-1 rounded-full" style="background: var(--app-muted); opacity: 0.4"></div>
 				</div>
 
 				<!-- Header -->
 				<div class="flex items-center gap-3 px-4 pb-3 flex-shrink-0">
 					<span class="text-3xl leading-none">{flagEmoji(selectedStat.isoCountryCode)}</span>
 					<div class="flex-1 min-w-0">
-						<h2 class="font-bold text-white text-lg leading-tight truncate">{selectedStat.country}</h2>
+						<h2 class="font-bold text-lg leading-tight truncate" style="color: var(--app-fg)">{selectedStat.country}</h2>
 						{#if periodLabel}
-							<p class="text-xs text-sky-400/70 font-mono mt-0.5">{periodLabel}</p>
+							<p class="text-xs font-mono mt-0.5" style="color: var(--app-accent); opacity: 0.7">{periodLabel}</p>
 						{/if}
 					</div>
 					<button
-						class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800
-							hover:bg-slate-700 text-slate-400 hover:text-white transition-colors flex-shrink-0"
+						class="w-8 h-8 flex items-center justify-center rounded-full transition-opacity hover:opacity-60 flex-shrink-0"
+						style="background: var(--app-surface); color: var(--app-muted)"
 						onclick={() => { selectedCountry = null; }}
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -517,18 +538,18 @@
 
 				<!-- Stats row -->
 				<div class="flex gap-3 px-4 pb-4 flex-shrink-0">
-					<div class="flex-1 bg-slate-800/70 rounded-xl p-3 text-center">
-						<p class="text-3xl font-black text-white tabular-nums">{selectedStat.days}</p>
-						<p class="text-slate-400 text-xs mt-0.5">días{periodLabel ? ` en ${periodLabel}` : ''}</p>
+					<div class="flex-1 rounded-xl p-3 text-center" style="background: var(--app-surface)">
+						<p class="text-3xl font-black tabular-nums" style="color: var(--app-fg)">{selectedStat.days}</p>
+						<p class="text-xs mt-0.5" style="color: var(--app-muted)">días{periodLabel ? ` en ${periodLabel}` : ''}</p>
 					</div>
-					<div class="flex-1 bg-slate-800/70 rounded-xl p-3 text-center">
-						<p class="text-3xl font-black text-white tabular-nums">{selectedStays.length}</p>
-						<p class="text-slate-400 text-xs mt-0.5">estanci{selectedStays.length === 1 ? 'a' : 'as'}</p>
+					<div class="flex-1 rounded-xl p-3 text-center" style="background: var(--app-surface)">
+						<p class="text-3xl font-black tabular-nums" style="color: var(--app-fg)">{selectedStays.length}</p>
+						<p class="text-xs mt-0.5" style="color: var(--app-muted)">estanci{selectedStays.length === 1 ? 'a' : 'as'}</p>
 					</div>
 					{#if periodLabel && selectedAllTimeStat && selectedAllTimeStat.days !== selectedStat.days}
-						<div class="flex-1 bg-slate-800/40 rounded-xl p-3 text-center border border-slate-700/50">
-							<p class="text-3xl font-black text-slate-400 tabular-nums">{selectedAllTimeStat.days}</p>
-							<p class="text-slate-500 text-xs mt-0.5">días totales</p>
+						<div class="flex-1 rounded-xl p-3 text-center" style="background: var(--app-surface); border: 1px solid var(--app-border)">
+							<p class="text-3xl font-black tabular-nums" style="color: var(--app-muted)">{selectedAllTimeStat.days}</p>
+							<p class="text-xs mt-0.5" style="color: var(--app-muted)">días totales</p>
 						</div>
 					{/if}
 				</div>
@@ -536,20 +557,20 @@
 				<!-- Stays list (scrollable) -->
 				{#if selectedStays.length > 0}
 					<div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
-						<p class="text-slate-500 text-xs uppercase tracking-wider mb-2">Estancias</p>
+						<p class="text-xs uppercase tracking-wider mb-2" style="color: var(--app-muted)">Estancias</p>
 						<div class="space-y-1.5">
 							{#each selectedStays as stay}
-								<div class="flex items-center gap-3 py-2 border-b border-slate-800/60 last:border-0">
+								<div class="flex items-center gap-3 py-2 border-b last:border-0" style="border-color: var(--app-border)">
 									<div class="flex-1 min-w-0">
-										<p class="text-sm text-slate-300">
+										<p class="text-sm" style="color: var(--app-fg)">
 											{formatShortDate(stay.startDate)}
 											{#if stay.days > 1}
-												<span class="text-slate-600 mx-1">→</span>
+												<span class="mx-1" style="color: var(--app-muted)">→</span>
 												{formatShortDate(stay.endDate)}
 											{/if}
 										</p>
 									</div>
-									<span class="text-sm font-mono text-sky-400 flex-shrink-0">{stay.days}d</span>
+									<span class="text-sm font-mono flex-shrink-0" style="color: var(--app-accent)">{stay.days}d</span>
 								</div>
 							{/each}
 						</div>

@@ -9,6 +9,6 @@
 	});
 </script>
 
-<div class="flex items-center justify-center h-full text-slate-500 py-20">
+<div class="flex items-center justify-center h-full py-20" style="color: var(--app-muted)">
 	Redirigiendo…
 </div>

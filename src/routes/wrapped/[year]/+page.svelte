@@ -44,14 +44,9 @@
 
   const mostTraveledMonth = $derived(getMostTraveledMonth(yearEntries));
 
-  // Year nav — years sorted desc
   const yearIndex = $derived(entriesStore.years.indexOf(year));
-  const prevYear = $derived(
-    entriesStore.years[yearIndex + 1] as number | undefined,
-  );
-  const nextYear = $derived(
-    entriesStore.years[yearIndex - 1] as number | undefined,
-  );
+  const prevYear = $derived(entriesStore.years[yearIndex + 1] as number | undefined);
+  const nextYear = $derived(entriesStore.years[yearIndex - 1] as number | undefined);
 
   function formatMonth(key: string) {
     if (!key) return "";
@@ -74,17 +69,19 @@
     <!-- Year navigation -->
     <div class="flex items-center justify-between">
       <button
-        class="text-slate-500 hover:text-white transition-colors disabled:opacity-20 disabled:pointer-events-none text-sm px-2 py-1"
+        class="text-sm px-2 py-1 transition-opacity hover:opacity-60 disabled:opacity-20 disabled:pointer-events-none"
+        style="color: var(--app-muted)"
         disabled={!prevYear}
         onclick={() => prevYear && goto(`/wrapped/${prevYear}`)}
       >
         ← {prevYear ?? ""}
       </button>
 
-      <h1 class="text-3xl font-black tracking-tight">{year}</h1>
+      <h1 class="text-3xl font-black tracking-tight" style="color: var(--app-fg)">{year}</h1>
 
       <button
-        class="text-slate-500 hover:text-white transition-colors disabled:opacity-20 disabled:pointer-events-none text-sm px-2 py-1"
+        class="text-sm px-2 py-1 transition-opacity hover:opacity-60 disabled:opacity-20 disabled:pointer-events-none"
+        style="color: var(--app-muted)"
         disabled={!nextYear}
         onclick={() => nextYear && goto(`/wrapped/${nextYear}`)}
       >
@@ -93,81 +90,72 @@
     </div>
 
     {#if yearEntries.length === 0}
-      <p class="text-slate-500 text-center py-10">Sin datos para {year}.</p>
+      <p class="text-center py-10" style="color: var(--app-muted)">Sin datos para {year}.</p>
     {:else}
       <!-- Hero -->
       <div
-        class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-center border border-slate-700/50"
+        class="rounded-2xl p-6 text-center"
+        style="background: var(--hero-gradient); border: 1px solid var(--hero-border)"
       >
-        <p class="text-slate-400 text-sm mb-3">Tu {year} en el mundo</p>
+        <p class="text-sm mb-3" style="color: var(--app-muted)">Tu {year} en el mundo</p>
         <div class="flex items-center justify-center gap-8">
           <div>
-            <p class="text-5xl font-black text-white">{totalCountries}</p>
-            <p class="text-slate-400 text-xs mt-1">países</p>
+            <p class="text-5xl font-black" style="color: var(--app-fg)">{totalCountries}</p>
+            <p class="text-xs mt-1" style="color: var(--app-muted)">países</p>
           </div>
-          <div class="w-px h-12 bg-slate-700"></div>
+          <div class="w-px h-12" style="background: var(--app-border)"></div>
           <div>
-            <p class="text-5xl font-black text-white">{totalDays}</p>
-            <p class="text-slate-400 text-xs mt-1">días</p>
+            <p class="text-5xl font-black" style="color: var(--app-fg)">{totalDays}</p>
+            <p class="text-xs mt-1" style="color: var(--app-muted)">días</p>
           </div>
         </div>
       </div>
 
       <!-- Stat cards 2x2 -->
       <div class="grid grid-cols-2 gap-3">
-        <!-- Most visited -->
         {#if topCountry}
-          <div class="bg-slate-800/60 rounded-xl p-4 space-y-1">
-            <p class="text-slate-500 text-xs">País más visitado</p>
+          <div class="rounded-xl p-4 space-y-1" style="background: var(--app-surface)">
+            <p class="text-xs" style="color: var(--app-muted)">País más visitado</p>
             <p class="text-2xl">{flagEmoji(topCountry.isoCountryCode)}</p>
-            <p class="font-semibold text-white text-sm">{topCountry.country}</p>
-            <p class="text-sky-400 text-xs font-mono">{topCountry.days} días</p>
+            <p class="font-semibold text-sm" style="color: var(--app-fg)">{topCountry.country}</p>
+            <p class="text-xs font-mono" style="color: var(--app-accent)">{topCountry.days} días</p>
           </div>
         {/if}
 
-        <!-- Longest stay -->
         {#if longestStay.days > 0}
-          <div class="bg-slate-800/60 rounded-xl p-4 space-y-1">
-            <p class="text-slate-500 text-xs">Estancia más larga</p>
+          <div class="rounded-xl p-4 space-y-1" style="background: var(--app-surface)">
+            <p class="text-xs" style="color: var(--app-muted)">Estancia más larga</p>
             <p class="text-2xl">{flagEmoji(longestStay.isoCountryCode)}</p>
-            <p class="font-semibold text-white text-sm">
-              {longestStay.country}
-            </p>
-            <p class="text-sky-400 text-xs font-mono">
-              {longestStay.days} días seguidos
-            </p>
+            <p class="font-semibold text-sm" style="color: var(--app-fg)">{longestStay.country}</p>
+            <p class="text-xs font-mono" style="color: var(--app-accent)">{longestStay.days} días seguidos</p>
           </div>
         {/if}
 
-        <!-- Most traveled month -->
         {#if mostTraveledMonth.month}
-          <div class="bg-slate-800/60 rounded-xl p-4 space-y-1">
-            <p class="text-slate-500 text-xs">Mes más viajado</p>
-            <p class="text-xl font-bold text-white capitalize mt-1">
+          <div class="rounded-xl p-4 space-y-1" style="background: var(--app-surface)">
+            <p class="text-xs" style="color: var(--app-muted)">Mes más viajado</p>
+            <p class="text-xl font-bold capitalize mt-1" style="color: var(--app-fg)">
               {formatMonth(mostTraveledMonth.month)}
             </p>
-            <p class="text-sky-400 text-xs font-mono">
+            <p class="text-xs font-mono" style="color: var(--app-accent)">
               {mostTraveledMonth.countries} países distintos
             </p>
           </div>
         {/if}
 
-        <!-- New countries -->
         {#if newCountries.length > 0}
-          <div class="bg-slate-800/60 rounded-xl p-4 space-y-1">
-            <p class="text-slate-500 text-xs">Países nuevos</p>
-            <p class="text-3xl font-black text-white mt-1">
-              {newCountries.length}
-            </p>
-            <p class="text-slate-400 text-xs">por primera vez</p>
+          <div class="rounded-xl p-4 space-y-1" style="background: var(--app-surface)">
+            <p class="text-xs" style="color: var(--app-muted)">Países nuevos</p>
+            <p class="text-3xl font-black mt-1" style="color: var(--app-fg)">{newCountries.length}</p>
+            <p class="text-xs" style="color: var(--app-muted)">por primera vez</p>
           </div>
         {:else if beforeEntries.length === 0}
-          <!-- First year of data, can't compute new countries -->
+          <!-- First year of data -->
         {:else}
-          <div class="bg-slate-800/60 rounded-xl p-4 space-y-1">
-            <p class="text-slate-500 text-xs">Países nuevos</p>
-            <p class="text-3xl font-black text-slate-600 mt-1">0</p>
-            <p class="text-slate-600 text-xs">ninguno nuevo</p>
+          <div class="rounded-xl p-4 space-y-1" style="background: var(--app-surface)">
+            <p class="text-xs" style="color: var(--app-muted)">Países nuevos</p>
+            <p class="text-3xl font-black mt-1" style="color: var(--app-muted); opacity: 0.4">0</p>
+            <p class="text-xs" style="color: var(--app-muted); opacity: 0.5">ninguno nuevo</p>
           </div>
         {/if}
       </div>
@@ -175,14 +163,12 @@
       <!-- New countries detail -->
       {#if newCountries.length > 0}
         <div class="space-y-2">
-          <p class="text-slate-500 text-xs uppercase tracking-wider">
-            Nuevos este año
-          </p>
+          <p class="text-xs uppercase tracking-wider" style="color: var(--app-muted)">Nuevos este año</p>
           <div class="flex flex-wrap gap-2">
             {#each newCountries as stat}
               <span
-                class="flex items-center gap-1.5 bg-sky-900/40 border border-sky-700/50
-							text-sky-300 text-xs px-3 py-1.5 rounded-full"
+                class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
+                style="background: var(--app-accent-subtle); border: 1px solid var(--app-accent); color: var(--app-accent); opacity: 0.9"
               >
                 {flagEmoji(stat.isoCountryCode)}
                 {stat.country}
@@ -194,41 +180,31 @@
 
       <!-- All countries this year -->
       <div class="space-y-2">
-        <p class="text-slate-500 text-xs uppercase tracking-wider">
-          Todos los países
-        </p>
+        <p class="text-xs uppercase tracking-wider" style="color: var(--app-muted)">Todos los países</p>
         <div class="space-y-2">
           {#each yearStats as stat}
-            {@const isNew = newCountries.some(
-              (n) => n.isoCountryCode === stat.isoCountryCode,
-            )}
+            {@const isNew = newCountries.some((n) => n.isoCountryCode === stat.isoCountryCode)}
             {@const pct = Math.round((stat.days / yearStats[0].days) * 100)}
             <div class="flex items-center gap-3">
-              <span class="text-lg leading-none w-7 text-center"
-                >{flagEmoji(stat.isoCountryCode)}</span
-              >
+              <span class="text-lg leading-none w-7 text-center">{flagEmoji(stat.isoCountryCode)}</span>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5 mb-1">
-                  <span class="text-sm text-slate-200 truncate"
-                    >{stat.country}</span
-                  >
+                  <span class="text-sm truncate" style="color: var(--app-fg)">{stat.country}</span>
                   {#if isNew && beforeEntries.length > 0}
                     <span
-                      class="text-[10px] px-1.5 py-0.5 bg-sky-900/60 text-sky-400 rounded-full leading-none"
-                      >nuevo</span
-                    >
+                      class="text-[10px] px-1.5 py-0.5 rounded-full leading-none"
+                      style="background: var(--app-accent-subtle); color: var(--app-accent)"
+                    >nuevo</span>
                   {/if}
                 </div>
-                <div class="h-1 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-1 rounded-full overflow-hidden" style="background: var(--app-track)">
                   <div
-                    class="h-full bg-sky-500 rounded-full"
-                    style="width: {pct}%"
+                    class="h-full rounded-full"
+                    style="width: {pct}%; background: var(--app-accent)"
                   ></div>
                 </div>
               </div>
-              <span class="text-xs font-mono text-slate-400 w-10 text-right"
-                >{stat.days}d</span
-              >
+              <span class="text-xs font-mono w-10 text-right" style="color: var(--app-muted)">{stat.days}d</span>
             </div>
           {/each}
         </div>
@@ -237,27 +213,20 @@
       <!-- Stays detail -->
       {#if yearStays.length > 0}
         <div class="space-y-2">
-          <p class="text-slate-500 text-xs uppercase tracking-wider">
-            Estancias
-          </p>
+          <p class="text-xs uppercase tracking-wider" style="color: var(--app-muted)">Estancias</p>
           <div class="space-y-1">
             {#each yearStays as stay}
               <div
-                class="flex items-center gap-3 text-sm py-1.5 border-b border-slate-800/60 last:border-0"
+                class="flex items-center gap-3 text-sm py-1.5 border-b last:border-0"
+                style="border-color: var(--app-border)"
               >
-                <span class="text-base leading-none"
-                  >{flagEmoji(stay.isoCountryCode)}</span
-                >
-                <span class="flex-1 text-slate-300 truncate"
-                  >{stay.country}</span
-                >
-                <span class="text-slate-500 text-xs">
+                <span class="text-base leading-none">{flagEmoji(stay.isoCountryCode)}</span>
+                <span class="flex-1 truncate" style="color: var(--app-fg)">{stay.country}</span>
+                <span class="text-xs" style="color: var(--app-muted)">
                   {formatDate(stay.startDate)}
                   {#if stay.days > 1}→ {formatDate(stay.endDate)}{/if}
                 </span>
-                <span class="text-slate-400 text-xs font-mono w-8 text-right"
-                  >{stay.days}d</span
-                >
+                <span class="text-xs font-mono w-8 text-right" style="color: var(--app-muted)">{stay.days}d</span>
               </div>
             {/each}
           </div>
