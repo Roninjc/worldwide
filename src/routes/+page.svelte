@@ -598,7 +598,7 @@
     <!-- ── Timeline zone (always visible) ─────────────────────────────── -->
     <div
       class="flex-shrink-0 border-t"
-      style="border-color: var(--app-border); background: var(--app-bg)"
+      style="border-color: var(--app-border); background: var(--app-bg); padding-bottom: var(--nav-clearance)"
     >
       <!-- Controls row -->
       <div class="px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">

@@ -64,7 +64,7 @@
   }
 </script>
 
-<div class="flex-1 overflow-y-auto">
+<div class="flex-1 overflow-y-auto" style="padding-bottom: var(--nav-clearance)">
   <div class="max-w-lg mx-auto px-4 py-6 space-y-6">
     <!-- Year navigation -->
     <div class="flex items-center justify-between">

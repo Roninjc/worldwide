@@ -53,7 +53,7 @@
 	}
 </script>
 
-<div class="flex-1 overflow-y-auto">
+<div class="flex-1 overflow-y-auto" style="padding-bottom: var(--nav-clearance)">
 <div class="max-w-lg mx-auto px-4 py-8 space-y-8">
 	<div>
 		<h1 class="text-2xl font-bold" style="color: var(--app-fg)">Sincronizar datos</h1>

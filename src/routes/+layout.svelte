@@ -25,21 +25,21 @@
 	data-theme={themeStore.current}
 	style="background: var(--app-bg); color: var(--app-fg);"
 >
-	<main class="flex-1 min-h-0 flex flex-col overflow-hidden" style="padding-bottom: var(--nav-clearance)">
+	<main class="flex-1 min-h-0 flex flex-col overflow-hidden">
 		{@render children()}
 	</main>
 
 	<!-- Floating glass nav pill -->
 	<nav
-		class="fixed left-1/2 z-30 flex items-center gap-0.5 px-2 py-1.5 rounded-full"
+		class="glass-pill fixed left-1/2 z-30 flex items-center gap-0.5 px-2 py-1.5 rounded-full"
 		style="
 			bottom: var(--nav-bottom);
 			transform: translateX(-50%);
 			background: var(--glass-bg);
 			border: 1px solid var(--glass-border);
 			box-shadow: var(--glass-shadow);
-			backdrop-filter: blur(24px) saturate(180%);
-			-webkit-backdrop-filter: blur(24px) saturate(180%);
+			backdrop-filter: blur(44px) saturate(220%);
+			-webkit-backdrop-filter: blur(44px) saturate(220%);
 		"
 	>
 		{#each navItems as item}
@@ -102,3 +102,52 @@
 		</button>
 	</nav>
 </div>
+
+<style>
+	/* Liquid crystal glass pill */
+	.glass-pill {
+		overflow: hidden;
+		isolation: isolate;
+	}
+
+	/* Specular highlight — bright line at the very top edge */
+	.glass-pill::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 12%;
+		right: 12%;
+		height: 1px;
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			rgba(255, 255, 255, 0.65) 25%,
+			rgba(255, 255, 255, 0.65) 75%,
+			transparent 100%
+		);
+		pointer-events: none;
+		z-index: 2;
+	}
+
+	/* Inner gradient sheen — convex lens illusion */
+	.glass-pill::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.03) 45%,
+			rgba(0, 0, 0, 0.04) 100%
+		);
+		pointer-events: none;
+		z-index: 2;
+	}
+
+	/* Nav items and buttons sit above the decorative layers */
+	.glass-pill > * {
+		position: relative;
+		z-index: 3;
+	}
+</style>
