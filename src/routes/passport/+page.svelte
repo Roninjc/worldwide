@@ -45,6 +45,7 @@
 	}
 </script>
 
+<div class="flex-1 overflow-y-auto">
 <div class="px-4 py-6 max-w-2xl mx-auto space-y-6">
 	<div>
 		<h1 class="text-2xl font-bold">Passport</h1>
@@ -136,4 +137,5 @@
 			{/each}
 		</div>
 	{/if}
+</div>
 </div>

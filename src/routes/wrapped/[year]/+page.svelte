@@ -55,6 +55,7 @@
 	}
 </script>
 
+<div class="flex-1 overflow-y-auto">
 <div class="max-w-lg mx-auto px-4 py-6 space-y-6">
 
 	<!-- Year navigation -->
@@ -211,4 +212,5 @@
 			</div>
 		{/if}
 	{/if}
+</div>
 </div>

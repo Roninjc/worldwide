@@ -18,33 +18,10 @@
 	let tooltip = $state<{ name: string; days: number; x: number; y: number } | null>(null);
 	let worldData = $state<Topology | null>(null);
 
-	// ── Setup: load data + ResizeObserver (runs once) ───────────────────────
-	onMount(async () => {
-		const raw = await import('world-atlas/countries-110m.json');
-		worldData = raw.default as unknown as Topology;
+	// D3 group holding all country paths (kept across color updates)
+	let g: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
 
-		let rafId: number;
-		const ro = new ResizeObserver(() => {
-			cancelAnimationFrame(rafId);
-			rafId = requestAnimationFrame(renderMap);
-		});
-		if (container) ro.observe(container);
-
-		return () => {
-			ro.disconnect();
-			cancelAnimationFrame(rafId);
-		};
-	});
-
-	// ── Re-render when data changes ─────────────────────────────────────────
-	$effect(() => {
-		// Read prop here so Svelte tracks it as a dependency
-		const data = daysByCountry;
-		if (!svgEl || !worldData || !container) return;
-		renderMap();
-	});
-
-	// ── Helpers ─────────────────────────────────────────────────────────────
+	// ── Helpers ──────────────────────────────────────────────────────────
 	function alpha2FromFeature(d: any): string {
 		return numericToAlpha2(String(d.id).padStart(3, '0')) ?? '';
 	}
@@ -58,10 +35,9 @@
 		return '#38bdf8';
 	}
 
-	// ── Render ───────────────────────────────────────────────────────────────
-	function renderMap() {
+	// ── Build all paths (initial + resize) ──────────────────────────────
+	function buildPaths() {
 		if (!svgEl || !worldData || !container) return;
-
 		const width = container.clientWidth;
 		if (width === 0) return;
 		const height = Math.round(width * 0.52);
@@ -75,17 +51,14 @@
 		const projection = d3.geoNaturalEarth1()
 			.scale(width / 6.4)
 			.translate([width / 2, height / 2]);
-
-		const path = d3.geoPath(projection);
-
+		const pathGen = d3.geoPath(projection);
 		const countries = feature(worldData as any, (worldData as any).objects.countries);
 
-		svg
-			.append('g')
-			.selectAll('path')
+		g = svg.append('g');
+		g.selectAll('path')
 			.data((countries as any).features)
 			.join('path')
-			.attr('d', path as any)
+			.attr('d', pathGen as any)
 			.attr('fill', (d: any) => countryColor(alpha2FromFeature(d)))
 			.attr('stroke', '#0f172a')
 			.attr('stroke-width', 0.4)
@@ -113,6 +86,44 @@
 				};
 			});
 	}
+
+	// ── Update only fill colors (debounced timeline scrub) ───────────────
+	function updateColors(duration: number) {
+		if (!g) return;
+		g.selectAll<SVGPathElement, any>('path')
+			.transition()
+			.duration(duration)
+			.attr('fill', (d: any) => countryColor(alpha2FromFeature(d)));
+	}
+
+	// ── Load data + ResizeObserver ───────────────────────────────────────
+	onMount(async () => {
+		const raw = await import('world-atlas/countries-110m.json');
+		worldData = raw.default as unknown as Topology;
+
+		let rafId: number;
+		const ro = new ResizeObserver(() => {
+			cancelAnimationFrame(rafId);
+			rafId = requestAnimationFrame(buildPaths);
+		});
+		if (container) ro.observe(container);
+
+		return () => {
+			ro.disconnect();
+			cancelAnimationFrame(rafId);
+		};
+	});
+
+	// ── Animate colors on data change, build paths on first render ───────
+	$effect(() => {
+		const _data = daysByCountry; // track as reactive dependency
+		if (!svgEl || !worldData || !container) return;
+		if (!g) {
+			buildPaths();
+		} else {
+			updateColors(350);
+		}
+	});
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->

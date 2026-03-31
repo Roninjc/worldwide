@@ -12,7 +12,6 @@
 
 	const navItems = [
 		{ href: '/', label: 'Mapa', icon: '🌍' },
-		{ href: '/timeline', label: 'Timeline', icon: '📅' },
 		{ href: '/passport', label: 'Passport', icon: '🛂' },
 		{ href: '/wrapped', label: 'Wrapped', icon: '✨' },
 		{ href: '/sync', label: 'Sync', icon: '🔄' }
@@ -20,7 +19,7 @@
 </script>
 
 <div class="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
-	<header class="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+	<header class="border-b border-slate-800 px-4 py-3 flex items-center justify-between flex-shrink-0">
 		<a href="/" class="text-lg font-bold tracking-tight">worldwide</a>
 		{#if entriesStore.loaded && entriesStore.totalDays > 0}
 			<span class="text-xs text-slate-400">
@@ -29,11 +28,11 @@
 		{/if}
 	</header>
 
-	<main class="flex-1 overflow-auto">
+	<main class="flex-1 flex flex-col overflow-hidden">
 		{@render children()}
 	</main>
 
-	<nav class="border-t border-slate-800 flex">
+	<nav class="border-t border-slate-800 flex flex-shrink-0">
 		{#each navItems as item}
 			<a
 				href={item.href}
