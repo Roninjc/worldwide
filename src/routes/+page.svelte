@@ -6,7 +6,8 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { entriesStore } from "$lib/entriesStore.svelte";
-  import { t } from "svelte-i18n";
+  import { t, locale } from "svelte-i18n";
+  import { getCountryName } from "$lib/countryName";
   import WorldMap from "$lib/components/WorldMap.svelte";
   import { flagEmoji } from "$lib/flag";
   import {
@@ -85,20 +86,12 @@
   );
 
   // ── Timeline markers ───────────────────────────────────────────────────
-  const MONTH_LABELS = [
-    "Ene",
-    "Feb",
-    "Mar",
-    "Abr",
-    "May",
-    "Jun",
-    "Jul",
-    "Ago",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dic",
-  ];
+  const monthLabels = $derived.by(() => {
+    const currentLocale = $locale ?? "en";
+    return Array.from({ length: 12 }, (_, i) =>
+      new Date(2000, i, 1).toLocaleDateString(currentLocale, { month: "short" })
+    );
+  });
 
   const yearMarkers = $derived.by(() => {
     const out: { year: number; left: number }[] = [];
@@ -126,7 +119,7 @@
         const ms = new Date(y, m, 1).getTime();
         if (ms <= timelineStart || ms >= timelineEnd) continue;
         out.push({
-          label: MONTH_LABELS[m],
+          label: monthLabels[m],
           left: Math.round(((ms - timelineStart) / 86_400_000) * pxPerDay),
         });
       }
@@ -423,7 +416,7 @@
   >
     <p class="font-semibold">
       {flagEmoji(timelineTooltip.stay.isoCountryCode)}
-      {timelineTooltip.stay.country}
+      {getCountryName(timelineTooltip.stay.isoCountryCode, $locale)}
     </p>
     <p class="mt-0.5" style="color: var(--app-muted)">
       {formatDate(timelineTooltip.stay.startDate)} → {formatDate(
@@ -605,7 +598,7 @@
               >{$t("stats.streak_days", {
                 values: {
                   days: longestStreak.days,
-                  country: longestStreak.country,
+                  country: getCountryName(longestStreak.isoCountryCode, $locale),
                 },
               })}</span
             >
@@ -635,7 +628,7 @@
                 >
                 <span
                   class="flex-1 text-sm truncate"
-                  style="color: var(--app-fg)">{stat.country}</span
+                  style="color: var(--app-fg)">{getCountryName(stat.isoCountryCode, $locale)}</span
                 >
                 <span class="text-sm font-mono" style="color: var(--app-muted)"
                   >{stat.days}d</span
@@ -792,7 +785,7 @@
                   >
                     {flagEmoji(
                       stay.isoCountryCode,
-                    )}{#if w > 56}&nbsp;{stay.country}{/if}
+                    )}{#if w > 56}&nbsp;{getCountryName(stay.isoCountryCode, $locale)}{/if}
                   </span>
                 {/if}
               </div>
@@ -842,7 +835,7 @@
               class="font-bold text-lg leading-tight truncate"
               style="color: var(--app-fg)"
             >
-              {selectedStat.country}
+              {getCountryName(selectedStat.isoCountryCode, $locale)}
             </h2>
             {#if periodLabel}
               <p

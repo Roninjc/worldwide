@@ -3,11 +3,10 @@
   import * as d3 from "d3";
   import { feature } from "topojson-client";
   import type { Topology } from "topojson-specification";
-  import { numericToAlpha2, getName, registerLocale } from "i18n-iso-countries";
-  import enLocale from "i18n-iso-countries/langs/en.json";
-  import { t } from "svelte-i18n";
+  import { numericToAlpha2 } from "i18n-iso-countries";
+  import { t, locale } from "svelte-i18n";
+  import { getCountryName } from "$lib/countryName";
   import { themeStore } from "$lib/themeStore.svelte";
-  registerLocale(enLocale);
 
   interface MapAPI {
     zoomToVisited: () => void;
@@ -104,7 +103,7 @@
         const alpha2 = alpha2FromFeature(d);
         const rect = container!.getBoundingClientRect();
         tooltip = {
-          name: getName(alpha2, "en") ?? "Unknown",
+          name: getCountryName(alpha2, $locale),
           days: daysByCountry.get(alpha2) ?? 0,
           x: event.clientX - rect.left,
           y: event.clientY - rect.top,

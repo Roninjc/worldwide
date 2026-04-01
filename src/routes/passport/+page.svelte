@@ -1,10 +1,10 @@
 <script lang="ts">
   import { entriesStore } from "$lib/entriesStore.svelte";
-  import { t } from "svelte-i18n";
+  import { t, locale } from "svelte-i18n";
   import { flagEmoji } from "$lib/flag";
+  import { getCountryName } from "$lib/countryName";
   import {
     getContinent,
-    CONTINENT_LABELS,
     CONTINENT_TOTALS,
     type Continent,
   } from "$lib/continents";
@@ -18,6 +18,15 @@
     "Oceania",
     "Antarctica",
   ];
+
+  const CONTINENT_KEYS: Record<Continent, string> = {
+    Europe: "continent.europe",
+    Asia: "continent.asia",
+    Africa: "continent.africa",
+    America: "continent.america",
+    Oceania: "continent.oceania",
+    Antarctica: "continent.antarctica",
+  };
 
   const byContinent = $derived(() => {
     const map = new Map<Continent, CountryStat[]>();
@@ -159,7 +168,7 @@
                     class="font-medium text-sm"
                     style="color: var(--app-fg)"
                   >
-                    {CONTINENT_LABELS[continent]}
+                    {$t(CONTINENT_KEYS[continent])}
                   </span>
                   <span class="text-xs" style="color: var(--app-muted)"
                     >{visited}/{total}</span
@@ -209,7 +218,7 @@
                       >{flagEmoji(stat.isoCountryCode)}</span
                     >
                     <span class="flex-1 truncate" style="color: var(--app-fg)"
-                      >{stat.country}</span
+                      >{getCountryName(stat.isoCountryCode, $locale)}</span
                     >
                     <span class="text-xs" style="color: var(--app-muted)"
                       >{firstVisitYear(stat)}</span

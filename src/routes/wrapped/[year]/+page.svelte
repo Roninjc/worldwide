@@ -2,7 +2,8 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { entriesStore } from "$lib/entriesStore.svelte";
-  import { t } from "svelte-i18n";
+  import { t, locale } from "svelte-i18n";
+  import { getCountryName } from "$lib/countryName";
   import {
     computeCountryStats,
     getMostTraveledMonth,
@@ -56,13 +57,13 @@
   function formatMonth(key: string) {
     if (!key) return "";
     const [y, m] = key.split("-");
-    return new Date(Number(y), Number(m) - 1).toLocaleDateString("es-ES", {
+    return new Date(Number(y), Number(m) - 1).toLocaleDateString($locale ?? "en", {
       month: "long",
     });
   }
 
   function formatDate(ms: number) {
-    return new Date(ms).toLocaleDateString("es-ES", {
+    return new Date(ms).toLocaleDateString($locale ?? "en", {
       day: "numeric",
       month: "short",
     });
@@ -148,7 +149,7 @@
             </p>
             <p class="text-2xl">{flagEmoji(topCountry.isoCountryCode)}</p>
             <p class="font-semibold text-sm" style="color: var(--app-fg)">
-              {topCountry.country}
+              {getCountryName(topCountry.isoCountryCode, $locale)}
             </p>
             <p class="text-xs font-mono" style="color: var(--app-accent)">
               {$t("wrapped.days_count", { values: { count: topCountry.days } })}
@@ -166,7 +167,7 @@
             </p>
             <p class="text-2xl">{flagEmoji(longestStay.isoCountryCode)}</p>
             <p class="font-semibold text-sm" style="color: var(--app-fg)">
-              {longestStay.country}
+              {getCountryName(longestStay.isoCountryCode, $locale)}
             </p>
             <p class="text-xs font-mono" style="color: var(--app-accent)">
               {$t("wrapped.days_straight", {
@@ -252,7 +253,7 @@
                 style="background: var(--app-accent-subtle); border: 1px solid var(--app-accent); color: var(--app-accent); opacity: 0.9"
               >
                 {flagEmoji(stat.isoCountryCode)}
-                {stat.country}
+                {getCountryName(stat.isoCountryCode, $locale)}
               </span>
             {/each}
           </div>
@@ -280,7 +281,7 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5 mb-1">
                   <span class="text-sm truncate" style="color: var(--app-fg)"
-                    >{stat.country}</span
+                    >{getCountryName(stat.isoCountryCode, $locale)}</span
                   >
                   {#if isNew && beforeEntries.length > 0}
                     <span
@@ -328,7 +329,7 @@
                   >{flagEmoji(stay.isoCountryCode)}</span
                 >
                 <span class="flex-1 truncate" style="color: var(--app-fg)"
-                  >{stay.country}</span
+                  >{getCountryName(stay.isoCountryCode, $locale)}</span
                 >
                 <span class="text-xs" style="color: var(--app-muted)">
                   {formatDate(stay.startDate)}

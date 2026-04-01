@@ -25,7 +25,7 @@
   async function handleFiles(files: File[] | FileList) {
     const jsonFiles = Array.from(files).filter((f) => f.name.endsWith(".json"));
     if (jsonFiles.length === 0) {
-      error = "Ningún archivo .json encontrado";
+      error = $t("sync.error_no_json");
       return;
     }
 
@@ -36,8 +36,7 @@
     try {
       result = await entriesStore.importFiles(jsonFiles);
     } catch {
-      error =
-        "Error al procesar los archivos. Comprueba que son JSONs válidos.";
+      error = $t("sync.error_processing");
     } finally {
       importing = false;
     }
@@ -112,10 +111,10 @@
       >
         <p class="text-4xl mb-3">📂</p>
         <p class="font-medium" style="color: var(--app-fg)">
-          Arrastra tus archivos JSON aquí
+          {$t("sync.drag_files")}
         </p>
         <p class="text-sm mt-1" style="color: var(--app-muted)">
-          o toca para seleccionar
+          {$t("sync.tap_to_select")}
         </p>
         <p class="text-xs mt-3" style="color: var(--app-muted); opacity: 0.5">
           locationsStore2023.json, locationsStore2024.json…
