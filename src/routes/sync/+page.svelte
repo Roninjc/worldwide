@@ -62,10 +62,10 @@
   <div class="max-w-lg mx-auto px-4 py-8 space-y-8">
     <div>
       <h1 class="text-2xl font-bold" style="color: var(--app-fg)">
-        {t("sync.title")}
+        {$t("sync.title")}
       </h1>
       <p class="text-sm mt-1" style="color: var(--app-muted)">
-        {t("sync.subtitle")}
+        {$t("sync.subtitle")}
       </p>
     </div>
 
@@ -75,10 +75,10 @@
         style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
       >
         <p class="font-medium text-sm" style="color: var(--ok-title)">
-          {t("sync.pwa_title")}
+          {$t("sync.pwa_title")}
         </p>
         <p class="text-xs" style="color: var(--ok-body)">
-          {t("sync.pwa_body")}
+          {$t("sync.pwa_body")}
         </p>
       </div>
     {/if}
@@ -86,7 +86,7 @@
     {#if importing}
       <div class="text-center py-8" style="color: var(--app-muted)">
         <p class="text-2xl mb-2">⏳</p>
-        {t("sync.importing")}
+        {$t("sync.importing")}
       </div>
     {:else}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -138,12 +138,11 @@
         style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
       >
         <p class="font-medium" style="color: var(--ok-title)">
-          {t("sync.import_done")}
+          {$t("sync.import_done")}
         </p>
         <p class="text-sm mt-1" style="color: var(--ok-body)">
-          {t("sync.import_result", {
-            imported: result.imported,
-            total: result.total,
+          {$t("sync.import_result", {
+            values: { imported: result.imported, total: result.total },
           })}
         </p>
       </div>
@@ -167,24 +166,24 @@
           class="text-xs uppercase tracking-wider"
           style="color: var(--app-muted)"
         >
-          {t("sync.stored_data")}
+          {$t("sync.stored_data")}
         </p>
         <div class="flex justify-between text-sm">
-          <span style="color: var(--app-fg)">{t("sync.total_entries")}</span>
+          <span style="color: var(--app-fg)">{$t("sync.total_entries")}</span>
           <span class="font-mono" style="color: var(--app-fg)"
             >{entriesStore.totalDays}</span
           >
         </div>
         <div class="flex justify-between text-sm">
           <span style="color: var(--app-fg)"
-            >{t("sync.distinct_countries")}</span
+            >{$t("sync.distinct_countries")}</span
           >
           <span class="font-mono" style="color: var(--app-fg)"
             >{entriesStore.totalCountries}</span
           >
         </div>
         <div class="flex justify-between text-sm">
-          <span style="color: var(--app-fg)">{t("sync.years")}</span>
+          <span style="color: var(--app-fg)">{$t("sync.years")}</span>
           <span class="font-mono" style="color: var(--app-fg)"
             >{entriesStore.years.join(", ")}</span
           >

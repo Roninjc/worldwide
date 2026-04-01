@@ -3,7 +3,8 @@ import {
   init,
   getLocaleFromNavigator,
   locale,
-  addMessages,
+  waitLocale,
+  isLoading,
 } from "svelte-i18n";
 
 // Idiomas soportados
@@ -19,4 +20,4 @@ init({
   initialLocale: getLocaleFromNavigator(),
 });
 
-export { locale, SUPPORTED_LOCALES };
+export { locale, SUPPORTED_LOCALES, waitLocale, isLoading };

@@ -57,10 +57,10 @@
     <div class="flex items-start justify-between">
       <div>
         <h1 class="text-2xl font-bold" style="color: var(--app-fg)">
-          {t("passport.title")}
+          {$t("passport.title")}
         </h1>
         <p class="text-sm mt-1" style="color: var(--app-muted)">
-          {t("passport.subtitle")}
+          {$t("passport.subtitle")}
         </p>
       </div>
       <a
@@ -82,15 +82,15 @@
           <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
           <path d="M8 16H3v5" />
         </svg>
-        {t("passport.import")}
+        {$t("passport.import")}
       </a>
     </div>
 
     {#if entriesStore.totalDays === 0}
       <p class="text-sm" style="color: var(--app-muted)">
-        {t("passport.no_data")}
+        {$t("passport.no_data")}
         <a href="/sync" class="underline" style="color: var(--app-accent)"
-          >{t("passport.import_json")}</a
+          >{$t("passport.import_json")}</a
         >.
       </p>
     {:else}
@@ -105,7 +105,9 @@
               {entriesStore.totalCountries}
             </p>
             <p class="text-sm" style="color: var(--app-muted)">
-              {t("passport.of_countries", { total: totalCountriesInWorld })}
+              {$t("passport.of_countries", {
+                values: { total: totalCountriesInWorld },
+              })}
             </p>
           </div>
           <p
@@ -125,8 +127,10 @@
           ></div>
         </div>
         <p class="text-xs" style="color: var(--app-muted)">
-          {t("passport.countries_left", {
-            left: totalCountriesInWorld - entriesStore.totalCountries,
+          {$t("passport.countries_left", {
+            values: {
+              left: totalCountriesInWorld - entriesStore.totalCountries,
+            },
           })}
         </p>
       </div>

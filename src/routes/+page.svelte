@@ -444,7 +444,7 @@
       class="flex-1 flex items-center justify-center text-sm"
       style="color: var(--app-muted)"
     >
-      {t("loading")}
+      {$t("loading")}
     </div>
   {:else if entriesStore.totalDays === 0}
     <div
@@ -452,17 +452,17 @@
     >
       <p class="text-5xl">🌍</p>
       <h2 class="text-xl font-bold" style="color: var(--app-fg)">
-        {t("empty.no_data")}
+        {$t("empty.no_data")}
       </h2>
       <p class="text-sm" style="color: var(--app-muted)">
-        {t("empty.import_json")}
+        {$t("empty.import_json")}
       </p>
       <a
         href="/sync"
         class="mt-2 px-5 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
         style="background: var(--app-accent); color: #ffffff"
       >
-        {t("empty.go_to_sync")}
+        {$t("empty.go_to_sync")}
       </a>
     </div>
   {:else}
@@ -511,9 +511,9 @@
           style="border-color: var(--app-border)"
         >
           <span class="text-xs" style="color: var(--app-muted)"
-            >{t("legend.days")}</span
+            >{$t("legend.days")}</span
           >
-          {#each [[t("legend.never"), "no"], [t("legend.low"), "low"], [t("legend.mid"), "mid"], [t("legend.high"), "high"], [t("legend.top"), "top"]] as [label, level]}
+          {#each [[$t("legend.never"), "no"], [$t("legend.low"), "low"], [$t("legend.mid"), "mid"], [$t("legend.high"), "high"], [$t("legend.top"), "top"]] as [label, level]}
             {@const color =
               level === "no"
                 ? "var(--app-track)"
@@ -559,7 +559,7 @@
                 {Math.round($tweenedCountries)}
               </p>
               <p class="text-xs mt-1" style="color: var(--app-muted)">
-                {t("stats.countries")}
+                {$t("stats.countries")}
               </p>
             </div>
             <div
@@ -573,7 +573,7 @@
                 {Math.round($tweenedDays)}
               </p>
               <p class="text-xs mt-1" style="color: var(--app-muted)">
-                {t("stats.days")}
+                {$t("stats.days")}
               </p>
             </div>
             <div
@@ -587,7 +587,7 @@
                 {Math.round($tweenedCoverage)}%
               </p>
               <p class="text-xs mt-1" style="color: var(--app-muted)">
-                {t("stats.world_coverage")}
+                {$t("stats.world_coverage")}
               </p>
             </div>
           </div>
@@ -599,12 +599,14 @@
             style="background: var(--app-surface)"
           >
             <span class="text-sm" style="color: var(--app-muted)"
-              >{t("stats.longest_streak")}</span
+              >{$t("stats.longest_streak")}</span
             >
             <span class="font-medium text-sm" style="color: var(--app-fg)"
-              >{t("stats.streak_days", {
-                days: longestStreak.days,
-                country: longestStreak.country,
+              >{$t("stats.streak_days", {
+                values: {
+                  days: longestStreak.days,
+                  country: longestStreak.country,
+                },
               })}</span
             >
           </div>
@@ -616,7 +618,7 @@
             class="text-xs uppercase tracking-wider mb-3"
             style="color: var(--app-muted)"
           >
-            {t("stats.top_countries")}
+            {$t("stats.top_countries")}
           </p>
           <div class="space-y-2">
             {#each topCountries as stat, i (stat.isoCountryCode)}
@@ -659,8 +661,8 @@
               class="block mt-4 text-center text-xs transition-opacity hover:opacity-60"
               style="color: var(--app-muted)"
             >
-              {t("stats.see_all_countries", {
-                count: entriesStore.totalCountries,
+              {$t("stats.see_all_countries", {
+                values: { count: entriesStore.totalCountries },
               })}
             </a>
           {/if}

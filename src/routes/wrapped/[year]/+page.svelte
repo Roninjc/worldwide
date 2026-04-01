@@ -104,7 +104,7 @@
 
     {#if yearEntries.length === 0}
       <p class="text-center py-10" style="color: var(--app-muted)">
-        {t("wrapped.no_data", { year })}
+        {$t("wrapped.no_data", { values: { year } })}
       </p>
     {:else}
       <!-- Hero -->
@@ -113,7 +113,7 @@
         style="background: var(--hero-gradient); border: 1px solid var(--hero-border)"
       >
         <p class="text-sm mb-3" style="color: var(--app-muted)">
-          {t("wrapped.subtitle", { year })}
+          {$t("wrapped.subtitle", { values: { year } })}
         </p>
         <div class="flex items-center justify-center gap-8">
           <div>
@@ -121,7 +121,7 @@
               {totalCountries}
             </p>
             <p class="text-xs mt-1" style="color: var(--app-muted)">
-              {t("wrapped.countries")}
+              {$t("wrapped.countries")}
             </p>
           </div>
           <div class="w-px h-12" style="background: var(--app-border)"></div>
@@ -130,7 +130,7 @@
               {totalDays}
             </p>
             <p class="text-xs mt-1" style="color: var(--app-muted)">
-              {t("wrapped.days")}
+              {$t("wrapped.days")}
             </p>
           </div>
         </div>
@@ -144,14 +144,14 @@
             style="background: var(--app-surface)"
           >
             <p class="text-xs" style="color: var(--app-muted)">
-              {t("wrapped.top_country")}
+              {$t("wrapped.top_country")}
             </p>
             <p class="text-2xl">{flagEmoji(topCountry.isoCountryCode)}</p>
             <p class="font-semibold text-sm" style="color: var(--app-fg)">
               {topCountry.country}
             </p>
             <p class="text-xs font-mono" style="color: var(--app-accent)">
-              {t("wrapped.days_count", { count: topCountry.days })}
+              {$t("wrapped.days_count", { values: { count: topCountry.days } })}
             </p>
           </div>
         {/if}
@@ -162,14 +162,16 @@
             style="background: var(--app-surface)"
           >
             <p class="text-xs" style="color: var(--app-muted)">
-              {t("wrapped.longest_stay")}
+              {$t("wrapped.longest_stay")}
             </p>
             <p class="text-2xl">{flagEmoji(longestStay.isoCountryCode)}</p>
             <p class="font-semibold text-sm" style="color: var(--app-fg)">
               {longestStay.country}
             </p>
             <p class="text-xs font-mono" style="color: var(--app-accent)">
-              {t("wrapped.days_straight", { count: longestStay.days })}
+              {$t("wrapped.days_straight", {
+                values: { count: longestStay.days },
+              })}
             </p>
           </div>
         {/if}
@@ -180,7 +182,7 @@
             style="background: var(--app-surface)"
           >
             <p class="text-xs" style="color: var(--app-muted)">
-              {t("wrapped.most_traveled_month")}
+              {$t("wrapped.most_traveled_month")}
             </p>
             <p
               class="text-xl font-bold capitalize mt-1"
@@ -189,8 +191,8 @@
               {formatMonth(mostTraveledMonth.month)}
             </p>
             <p class="text-xs font-mono" style="color: var(--app-accent)">
-              {t("wrapped.distinct_countries", {
-                count: mostTraveledMonth.countries,
+              {$t("wrapped.distinct_countries", {
+                values: { count: mostTraveledMonth.countries },
               })}
             </p>
           </div>
@@ -202,13 +204,13 @@
             style="background: var(--app-surface)"
           >
             <p class="text-xs" style="color: var(--app-muted)">
-              {t("wrapped.new_countries")}
+              {$t("wrapped.new_countries")}
             </p>
             <p class="text-3xl font-black mt-1" style="color: var(--app-fg)">
               {newCountries.length}
             </p>
             <p class="text-xs" style="color: var(--app-muted)">
-              {t("wrapped.for_first_time")}
+              {$t("wrapped.for_first_time")}
             </p>
           </div>
         {:else if beforeEntries.length === 0}
@@ -219,7 +221,7 @@
             style="background: var(--app-surface)"
           >
             <p class="text-xs" style="color: var(--app-muted)">
-              {t("wrapped.new_countries")}
+              {$t("wrapped.new_countries")}
             </p>
             <p
               class="text-3xl font-black mt-1"
@@ -228,7 +230,7 @@
               0
             </p>
             <p class="text-xs" style="color: var(--app-muted); opacity: 0.5">
-              {t("wrapped.none_new")}
+              {$t("wrapped.none_new")}
             </p>
           </div>
         {/if}
@@ -241,7 +243,7 @@
             class="text-xs uppercase tracking-wider"
             style="color: var(--app-muted)"
           >
-            {t("wrapped.new_this_year")}
+            {$t("wrapped.new_this_year")}
           </p>
           <div class="flex flex-wrap gap-2">
             {#each newCountries as stat}
@@ -263,7 +265,7 @@
           class="text-xs uppercase tracking-wider"
           style="color: var(--app-muted)"
         >
-          {t("wrapped.all_countries")}
+          {$t("wrapped.all_countries")}
         </p>
         <div class="space-y-2">
           {#each yearStats as stat}
@@ -284,7 +286,7 @@
                     <span
                       class="text-[10px] px-1.5 py-0.5 rounded-full leading-none"
                       style="background: var(--app-accent-subtle); color: var(--app-accent)"
-                      >{t("wrapped.new")}</span
+                      >{$t("wrapped.new")}</span
                     >
                   {/if}
                 </div>
@@ -314,7 +316,7 @@
             class="text-xs uppercase tracking-wider"
             style="color: var(--app-muted)"
           >
-            {t("wrapped.stays")}
+            {$t("wrapped.stays")}
           </p>
           <div class="space-y-1">
             {#each yearStays as stay}

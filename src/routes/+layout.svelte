@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../app.css";
+  import { isLoading } from "$lib/i18n";
   import { tick } from "svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
@@ -98,7 +99,13 @@
   style="background: var(--app-bg); color: var(--app-fg);"
 >
   <main class="flex-1 min-h-0 flex flex-col overflow-hidden">
-    {@render children()}
+    {#if $isLoading}
+      <div class="flex-1 flex items-center justify-center">
+        <span style="color: var(--app-muted)">Loading…</span>
+      </div>
+    {:else}
+      {@render children()}
+    {/if}
   </main>
 
   <!-- Bottom bar: sync ← [nav pill] → theme -->

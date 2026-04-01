@@ -272,7 +272,7 @@
 >
   {#if !worldData}
     <div class="flex items-center justify-center h-48 text-slate-600 text-sm">
-      {t("map.loading")}
+      {$t("map.loading")}
     </div>
   {:else}
     <svg
