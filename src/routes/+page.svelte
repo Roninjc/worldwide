@@ -185,21 +185,35 @@
   }
 
   let pinchDist0 = 0;
+  let dragX0 = 0;
+  let dragScroll0 = 0;
   function getPinchDist(t: TouchList) {
     return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
   }
   function onTouchStart(e: TouchEvent) {
-    if (e.touches.length === 2) pinchDist0 = getPinchDist(e.touches);
+    if (!scrollEl) return;
+    if (e.touches.length === 2) {
+      pinchDist0 = getPinchDist(e.touches);
+    } else if (e.touches.length === 1) {
+      dragX0 = e.touches[0].clientX;
+      dragScroll0 = scrollEl.scrollLeft;
+    }
   }
   function onTouchMove(e: TouchEvent) {
-    if (e.touches.length !== 2) return;
-    e.preventDefault();
-    const dist = getPinchDist(e.touches);
-    const cx =
-      (e.touches[0].clientX + e.touches[1].clientX) / 2 -
-      scrollEl!.getBoundingClientRect().left;
-    zoom(dist / pinchDist0, cx);
-    pinchDist0 = dist;
+    if (!scrollEl) return;
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dist = getPinchDist(e.touches);
+      const cx =
+        (e.touches[0].clientX + e.touches[1].clientX) / 2 -
+        scrollEl.getBoundingClientRect().left;
+      zoom(dist / pinchDist0, cx);
+      pinchDist0 = dist;
+    } else if (e.touches.length === 1) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - dragX0;
+      scrollEl.scrollLeft = dragScroll0 - dx;
+    }
   }
 
   // ── Timeline tooltip ───────────────────────────────────────────────────
@@ -707,6 +721,7 @@
         onmouseleave={() => {
           timelineTooltip = null;
         }}
+        style="touch-action: none;"
       >
         <div class="relative" style="width: {totalWidth}px; height: 72px;">
           <!-- Year boundaries -->
