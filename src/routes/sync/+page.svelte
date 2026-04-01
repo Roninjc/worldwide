@@ -3,6 +3,7 @@
   import { page } from "$app/stores";
   import { browser } from "$app/environment";
   import { entriesStore } from "$lib/entriesStore.svelte";
+  import { t } from "svelte-i18n";
   import { consumePendingFiles } from "$lib/pendingShare";
 
   let isDragging = $state(false);
@@ -61,10 +62,10 @@
   <div class="max-w-lg mx-auto px-4 py-8 space-y-8">
     <div>
       <h1 class="text-2xl font-bold" style="color: var(--app-fg)">
-        Sincronizar datos
+        {t("sync.title")}
       </h1>
       <p class="text-sm mt-1" style="color: var(--app-muted)">
-        Importa tus archivos JSON de Scriptable
+        {t("sync.subtitle")}
       </p>
     </div>
 
@@ -74,13 +75,10 @@
         style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
       >
         <p class="font-medium text-sm" style="color: var(--ok-title)">
-          Instala la app para sincronización automática
+          {t("sync.pwa_title")}
         </p>
         <p class="text-xs" style="color: var(--ok-body)">
-          En Safari, toca <strong>Compartir →</strong>
-          <strong>"Añadir a pantalla de inicio"</strong>. Una vez instalada,
-          puedes compartir los JSON directamente desde Scriptable sin pasos
-          extra.
+          {t("sync.pwa_body")}
         </p>
       </div>
     {/if}
@@ -88,7 +86,7 @@
     {#if importing}
       <div class="text-center py-8" style="color: var(--app-muted)">
         <p class="text-2xl mb-2">⏳</p>
-        Importando…
+        {t("sync.importing")}
       </div>
     {:else}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -140,10 +138,13 @@
         style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
       >
         <p class="font-medium" style="color: var(--ok-title)">
-          Importación completada
+          {t("sync.import_done")}
         </p>
         <p class="text-sm mt-1" style="color: var(--ok-body)">
-          {result.imported} entradas nuevas de {result.total} totales
+          {t("sync.import_result", {
+            imported: result.imported,
+            total: result.total,
+          })}
         </p>
       </div>
     {/if}
@@ -166,22 +167,24 @@
           class="text-xs uppercase tracking-wider"
           style="color: var(--app-muted)"
         >
-          Datos almacenados
+          {t("sync.stored_data")}
         </p>
         <div class="flex justify-between text-sm">
-          <span style="color: var(--app-fg)">Entradas totales</span>
+          <span style="color: var(--app-fg)">{t("sync.total_entries")}</span>
           <span class="font-mono" style="color: var(--app-fg)"
             >{entriesStore.totalDays}</span
           >
         </div>
         <div class="flex justify-between text-sm">
-          <span style="color: var(--app-fg)">Países distintos</span>
+          <span style="color: var(--app-fg)"
+            >{t("sync.distinct_countries")}</span
+          >
           <span class="font-mono" style="color: var(--app-fg)"
             >{entriesStore.totalCountries}</span
           >
         </div>
         <div class="flex justify-between text-sm">
-          <span style="color: var(--app-fg)">Años</span>
+          <span style="color: var(--app-fg)">{t("sync.years")}</span>
           <span class="font-mono" style="color: var(--app-fg)"
             >{entriesStore.years.join(", ")}</span
           >

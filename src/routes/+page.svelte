@@ -6,6 +6,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { entriesStore } from "$lib/entriesStore.svelte";
+  import { t } from "svelte-i18n";
   import WorldMap from "$lib/components/WorldMap.svelte";
   import { flagEmoji } from "$lib/flag";
   import {
@@ -443,7 +444,7 @@
       class="flex-1 flex items-center justify-center text-sm"
       style="color: var(--app-muted)"
     >
-      Cargando…
+      {t("loading")}
     </div>
   {:else if entriesStore.totalDays === 0}
     <div
@@ -451,17 +452,17 @@
     >
       <p class="text-5xl">🌍</p>
       <h2 class="text-xl font-bold" style="color: var(--app-fg)">
-        Sin datos todavía
+        {t("empty.no_data")}
       </h2>
       <p class="text-sm" style="color: var(--app-muted)">
-        Importa tus archivos JSON de Scriptable para empezar.
+        {t("empty.import_json")}
       </p>
       <a
         href="/sync"
         class="mt-2 px-5 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
         style="background: var(--app-accent); color: #ffffff"
       >
-        Ir a Sync
+        {t("empty.go_to_sync")}
       </a>
     </div>
   {:else}
@@ -509,8 +510,10 @@
           class="flex items-center gap-2 px-4 pt-2.5 pb-1.5 flex-wrap border-b"
           style="border-color: var(--app-border)"
         >
-          <span class="text-xs" style="color: var(--app-muted)">Días:</span>
-          {#each [["Sin visitar", "no"], ["1–7", "low"], ["8–29", "mid"], ["30–89", "high"], ["90+", "top"]] as [label, level]}
+          <span class="text-xs" style="color: var(--app-muted)"
+            >{t("legend.days")}</span
+          >
+          {#each [[t("legend.never"), "no"], [t("legend.low"), "low"], [t("legend.mid"), "mid"], [t("legend.high"), "high"], [t("legend.top"), "top"]] as [label, level]}
             {@const color =
               level === "no"
                 ? "var(--app-track)"
@@ -555,7 +558,9 @@
               >
                 {Math.round($tweenedCountries)}
               </p>
-              <p class="text-xs mt-1" style="color: var(--app-muted)">países</p>
+              <p class="text-xs mt-1" style="color: var(--app-muted)">
+                {t("stats.countries")}
+              </p>
             </div>
             <div
               class="rounded-xl p-3 text-center"
@@ -567,7 +572,9 @@
               >
                 {Math.round($tweenedDays)}
               </p>
-              <p class="text-xs mt-1" style="color: var(--app-muted)">días</p>
+              <p class="text-xs mt-1" style="color: var(--app-muted)">
+                {t("stats.days")}
+              </p>
             </div>
             <div
               class="rounded-xl p-3 text-center"
@@ -580,7 +587,7 @@
                 {Math.round($tweenedCoverage)}%
               </p>
               <p class="text-xs mt-1" style="color: var(--app-muted)">
-                del mundo
+                {t("stats.world_coverage")}
               </p>
             </div>
           </div>
@@ -592,10 +599,13 @@
             style="background: var(--app-surface)"
           >
             <span class="text-sm" style="color: var(--app-muted)"
-              >Racha más larga</span
+              >{t("stats.longest_streak")}</span
             >
             <span class="font-medium text-sm" style="color: var(--app-fg)"
-              >{longestStreak.days} días en {longestStreak.country}</span
+              >{t("stats.streak_days", {
+                days: longestStreak.days,
+                country: longestStreak.country,
+              })}</span
             >
           </div>
         {/if}
@@ -606,7 +616,7 @@
             class="text-xs uppercase tracking-wider mb-3"
             style="color: var(--app-muted)"
           >
-            Top países
+            {t("stats.top_countries")}
           </p>
           <div class="space-y-2">
             {#each topCountries as stat, i (stat.isoCountryCode)}
@@ -649,7 +659,9 @@
               class="block mt-4 text-center text-xs transition-opacity hover:opacity-60"
               style="color: var(--app-muted)"
             >
-              Ver todos los {entriesStore.totalCountries} países →
+              {t("stats.see_all_countries", {
+                count: entriesStore.totalCountries,
+              })}
             </a>
           {/if}
         </div>
