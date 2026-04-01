@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: roninjc/worldwide
 
 jobs:
   build-and-deploy:
@@ -30,7 +30,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ env.IMAGE_NAME }}:latest
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v2
