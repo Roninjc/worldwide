@@ -10,9 +10,31 @@
 
   let { children } = $props();
 
+  function setThemeColorMeta(color: string) {
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "theme-color");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", color);
+  }
+
+  function updateThemeColor() {
+    const style = getComputedStyle(document.documentElement);
+    setThemeColorMeta(style.getPropertyValue("--app-bg").trim());
+  }
+
   onMount(() => {
     entriesStore.load();
     themeStore.init();
+    updateThemeColor();
+    // Observa cambios en el atributo data-theme
+    const observer = new MutationObserver(updateThemeColor);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
   });
 
   const navItems = [
@@ -229,7 +251,9 @@
                 <path d="M5 3v3M3 5h3M19 15v3M17 17h3" />
               </svg>
             {/if}
-            <span class="text-[10px] leading-none font-medium">{$t(item.labelKey)}</span>
+            <span class="text-[10px] leading-none font-medium"
+              >{$t(item.labelKey)}</span
+            >
           </a>
         {/each}
       </nav>
