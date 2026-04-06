@@ -2,6 +2,7 @@
 
 /* ── Theme tokens ─────────────────────────────────────────────────── */
 :root {
+	color-scheme: dark;
 	--app-bg: #0f172a;
 	--app-surface: rgba(30, 41, 59, 0.65);
 	--app-surface-2: rgba(30, 41, 59, 0.92);
@@ -47,6 +48,7 @@
 }
 
 [data-theme="light"] {
+	color-scheme: light;
 	--app-bg: #f1f5f9;
 	--app-surface: rgba(255, 255, 255, 0.85);
 	--app-surface-2: rgba(248, 250, 252, 0.96);
@@ -84,4 +86,15 @@
 		inset 0 -1px 0 rgba(0,0,0,0.06),
 		0 8px 40px rgba(0,0,0,0.12),
 		0 2px 12px rgba(0,0,0,0.08);
+}
+
+/* ── Safe area support for iOS ────────────────────────────────────── */
+html, body {
+	background-color: var(--app-bg);
+}
+
+body {
+	padding-top: env(safe-area-inset-top);
+	padding-left: env(safe-area-inset-left);
+	padding-right: env(safe-area-inset-right);
 }

@@ -11,18 +11,24 @@
   let { children } = $props();
 
   function setThemeColorMeta(color: string) {
-    let meta = document.querySelector('meta[name="theme-color"]');
-    if (!meta) {
-      meta = document.createElement("meta");
-      meta.setAttribute("name", "theme-color");
-      document.head.appendChild(meta);
-    }
+    // Remove existing theme-color metas and create fresh one
+    // This forces browsers (especially Chrome on iOS) to re-read the value
+    document
+      .querySelectorAll('meta[name="theme-color"]')
+      .forEach((m) => m.remove());
+    const meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
     meta.setAttribute("content", color);
+    document.head.appendChild(meta);
   }
 
   function updateThemeColor() {
-    const style = getComputedStyle(document.documentElement);
-    setThemeColorMeta(style.getPropertyValue("--app-bg").trim());
+    // Wait for styles to be computed after theme change
+    requestAnimationFrame(() => {
+      const style = getComputedStyle(document.documentElement);
+      const color = style.getPropertyValue("--app-bg").trim();
+      setThemeColorMeta(color);
+    });
   }
 
   onMount(() => {
@@ -118,7 +124,6 @@
 
 <div
   class="h-dvh flex flex-col overflow-hidden"
-  data-theme={themeStore.current}
   style="background: var(--app-bg); color: var(--app-fg);"
 >
   {#if $isLoading}
@@ -351,8 +356,7 @@
   }
 
   /* Nav links sit above the decorative layers */
-  .glass-pill > a,
-  .glass-pill > button {
+  .glass-pill > a {
     position: relative;
     z-index: 3;
   }
