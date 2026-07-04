@@ -57,13 +57,38 @@ export function getAvailableYears(entries: LocationEntry[]): number[] {
 	return Array.from(years).sort((a, b) => b - a);
 }
 
-export function getLongestStreak(entries: LocationEntry[]): { country: string; days: number } {
+export function getLongestStreak(
+	entries: LocationEntry[]
+): { country: string; isoCountryCode: string; days: number } {
 	const stays = computeStays(entries);
-	if (stays.length === 0) return { country: '', days: 0 };
+	const initial = { country: '', isoCountryCode: '', days: 0 };
+	if (stays.length === 0) return initial;
 	return stays.reduce(
-		(best, stay) => (stay.days > best.days ? { country: stay.country, days: stay.days } : best),
-		{ country: '', days: 0 }
+		(best, stay) =>
+			stay.days > best.days
+				? { country: stay.country, isoCountryCode: stay.isoCountryCode, days: stay.days }
+				: best,
+		initial
 	);
+}
+
+/** Days after which locally stored data is considered potentially out of date */
+export const STALE_THRESHOLD_DAYS = 2;
+
+/** Timestamp of the most recent entry, or null when there are no entries */
+export function newestEntryDate(entries: LocationEntry[]): number | null {
+	if (entries.length === 0) return null;
+	return entries.reduce((max, e) => Math.max(max, e.date), -Infinity);
+}
+
+/** Whole days elapsed since the most recent entry, or null when there are no entries */
+export function daysSinceNewestEntry(
+	entries: LocationEntry[],
+	now: number = Date.now()
+): number | null {
+	const newest = newestEntryDate(entries);
+	if (newest === null) return null;
+	return Math.floor((now - newest) / 86_400_000);
 }
 
 export function getMostTraveledMonth(entries: LocationEntry[]): { month: string; countries: number } {

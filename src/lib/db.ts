@@ -1,10 +1,13 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { LocationEntry } from './types';
 
+// Records are stored with an `id` (the object store's keyPath), added on import.
+type StoredEntry = LocationEntry & { id: string };
+
 interface WorldwideDB extends DBSchema {
 	entries: {
 		key: string; // `${isoCountryCode}_${date}`
-		value: LocationEntry;
+		value: StoredEntry;
 		indexes: {
 			by_date: number;
 			by_country: string;
@@ -40,7 +43,7 @@ export async function importEntries(entries: LocationEntry[]): Promise<number> {
 		const id = entryId(entry);
 		const existing = await tx.store.get(id);
 		if (!existing) {
-			await tx.store.put({ ...entry, id } as LocationEntry & { id: string });
+			await tx.store.put({ ...entry, id });
 			imported++;
 		}
 	}

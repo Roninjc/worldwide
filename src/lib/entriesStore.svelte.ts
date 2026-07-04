@@ -1,5 +1,6 @@
 import { getAllEntries, importEntries, getEntryCount } from './db';
 import { computeCountryStats, getAvailableYears, countUniqueDays } from './stats';
+import { syncStore } from './syncStore.svelte';
 import type { LocationEntry, CountryStat } from './types';
 
 function createEntriesStore() {
@@ -28,6 +29,7 @@ function createEntriesStore() {
 		}
 
 		await load();
+		syncStore.markImported();
 		return { imported, total };
 	}
 

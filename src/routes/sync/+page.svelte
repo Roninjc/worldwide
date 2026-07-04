@@ -3,7 +3,9 @@
   import { page } from "$app/stores";
   import { browser } from "$app/environment";
   import { entriesStore } from "$lib/entriesStore.svelte";
-  import { t } from "svelte-i18n";
+  import { syncStore } from "$lib/syncStore.svelte";
+  import { relativeTime } from "$lib/time";
+  import { t, locale } from "svelte-i18n";
   import { consumePendingFiles } from "$lib/pendingShare";
 
   let isDragging = $state(false);
@@ -137,13 +139,17 @@
         style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
       >
         <p class="font-medium" style="color: var(--ok-title)">
-          {$t("sync.import_done")}
+          {result.imported > 0
+            ? $t("sync.import_done")
+            : $t("sync.up_to_date")}
         </p>
-        <p class="text-sm mt-1" style="color: var(--ok-body)">
-          {$t("sync.import_result", {
-            values: { imported: result.imported, total: result.total },
-          })}
-        </p>
+        {#if result.imported > 0}
+          <p class="text-sm mt-1" style="color: var(--ok-body)">
+            {$t("sync.import_new_days", {
+              values: { imported: result.imported },
+            })}
+          </p>
+        {/if}
       </div>
     {/if}
 
@@ -187,6 +193,14 @@
             >{entriesStore.years.join(", ")}</span
           >
         </div>
+        {#if syncStore.lastImport}
+          <div class="flex justify-between text-sm">
+            <span style="color: var(--app-fg)">{$t("sync.last_import")}</span>
+            <span style="color: var(--app-muted)"
+              >{relativeTime(syncStore.lastImport, $locale)}</span
+            >
+          </div>
+        {/if}
       </div>
     {/if}
   </div>

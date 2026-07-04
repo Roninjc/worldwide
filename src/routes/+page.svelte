@@ -9,6 +9,7 @@
   import { t, locale } from "svelte-i18n";
   import { getCountryName } from "$lib/countryName";
   import WorldMap from "$lib/components/WorldMap.svelte";
+  import StaleBanner from "$lib/components/StaleBanner.svelte";
   import { flagEmoji } from "$lib/flag";
   import {
     getLongestStreak,
@@ -459,6 +460,9 @@
       </a>
     </div>
   {:else}
+    <!-- Floating "data may be out of date" banner (both sync modes) -->
+    <StaleBanner />
+
     <!-- ── Map zone (sized by SVG aspect ratio) ───────────────────────── -->
     <div
       class="flex-shrink-0 overflow-hidden relative"
