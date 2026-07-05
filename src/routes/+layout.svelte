@@ -7,6 +7,8 @@
   import { page } from "$app/stores";
   import { entriesStore } from "$lib/entriesStore.svelte";
   import { themeStore } from "$lib/themeStore.svelte";
+  import { syncStore } from "$lib/syncStore.svelte";
+  import { syncFromRelay } from "$lib/sync";
 
   let { children } = $props();
 
@@ -32,7 +34,18 @@
   }
 
   onMount(() => {
-    entriesStore.load();
+    entriesStore.load().then(() => {
+      // Relay mode: pull the latest encrypted blob on launch, then refresh if new data arrived.
+      if (syncStore.mode === "relay" && syncStore.relay) {
+        syncFromRelay()
+          .then((r) => {
+            if (r.ok && r.imported > 0) entriesStore.load();
+          })
+          .catch(() => {
+            /* stay on local data; the stale banner will signal if it's old */
+          });
+      }
+    });
     themeStore.init();
     updateThemeColor();
     // Observa cambios en el atributo data-theme

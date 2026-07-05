@@ -3,8 +3,10 @@
   import { page } from "$app/stores";
   import { browser } from "$app/environment";
   import { entriesStore } from "$lib/entriesStore.svelte";
-  import { syncStore } from "$lib/syncStore.svelte";
+  import { syncStore, type SyncMode } from "$lib/syncStore.svelte";
   import { relativeTime } from "$lib/time";
+  import { generateRelayId } from "$lib/crypto";
+  import { syncFromRelay } from "$lib/sync";
   import { t, locale } from "svelte-i18n";
   import { consumePendingFiles } from "$lib/pendingShare";
 
@@ -12,6 +14,83 @@
   let importing = $state(false);
   let result = $state<{ imported: number; total: number } | null>(null);
   let error = $state<string | null>(null);
+
+  // ── Encrypted relay (automatic mode) ─────────────────────────────────
+  let relayUrl = $state(syncStore.relay?.url ?? "");
+  let passphrase = $state(syncStore.relay?.pass ?? "");
+  let relayId = $state(syncStore.relay?.id ?? "");
+  let syncing = $state(false);
+  let copied = $state(false);
+  let relayMsg = $state<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  function setMode(mode: SyncMode) {
+    syncStore.mode = mode;
+    relayMsg = null;
+  }
+
+  async function activateRelay() {
+    relayMsg = null;
+    const url = relayUrl.trim();
+    if (!url) {
+      relayMsg = { kind: "err", text: $t("sync.relay_need_url") };
+      return;
+    }
+    if (passphrase.length < 6) {
+      relayMsg = { kind: "err", text: $t("sync.relay_need_pass") };
+      return;
+    }
+    if (!relayId) relayId = generateRelayId();
+    syncStore.setRelay({ url, id: relayId, pass: passphrase });
+    syncStore.mode = "relay";
+    await syncNow();
+  }
+
+  async function syncNow() {
+    if (!syncStore.relay) return;
+    syncing = true;
+    relayMsg = null;
+    const r = await syncFromRelay();
+    syncing = false;
+
+    if (r.ok) {
+      await entriesStore.load();
+      if (r.empty) relayMsg = { kind: "ok", text: $t("sync.relay_empty") };
+      else if (r.imported > 0)
+        relayMsg = {
+          kind: "ok",
+          text: $t("sync.import_new_days", { values: { imported: r.imported } }),
+        };
+      else relayMsg = { kind: "ok", text: $t("sync.up_to_date") };
+    } else if (r.reason === "decrypt") {
+      relayMsg = { kind: "err", text: $t("sync.relay_err_decrypt") };
+    } else if (r.reason === "network") {
+      relayMsg = { kind: "err", text: $t("sync.relay_err_network") };
+    } else if (r.reason !== "not-configured") {
+      relayMsg = { kind: "err", text: $t("sync.error_processing") };
+    }
+  }
+
+  function disableRelay() {
+    syncStore.setRelay(null);
+    syncStore.mode = "manual";
+    relayId = "";
+    relayMsg = null;
+  }
+
+  async function copyConfig() {
+    if (!syncStore.relay) return;
+    const cfg = JSON.stringify({
+      url: syncStore.relay.url,
+      id: syncStore.relay.id,
+    });
+    try {
+      await navigator.clipboard.writeText(cfg);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    } catch {
+      /* clipboard blocked; ignore */
+    }
+  }
 
   const isInstalled = $derived(
     browser && window.matchMedia("(display-mode: standalone)").matches,
@@ -203,5 +282,145 @@
         {/if}
       </div>
     {/if}
+
+    <!-- ── Sync mode ──────────────────────────────────────────────────── -->
+    <div
+      class="rounded-xl p-4 space-y-4"
+      style="border: 1px solid var(--app-border)"
+    >
+      <p
+        class="text-xs uppercase tracking-wider"
+        style="color: var(--app-muted)"
+      >
+        {$t("sync.mode_title")}
+      </p>
+
+      <!-- Segmented control -->
+      <div
+        class="flex rounded-lg overflow-hidden text-sm"
+        style="border: 1px solid var(--app-border)"
+      >
+        {#each [["manual", $t("sync.mode_manual")], ["relay", $t("sync.mode_relay")]] as [value, label]}
+          {@const active = syncStore.mode === value}
+          <button
+            class="flex-1 py-2 transition-colors"
+            style="background: {active
+              ? 'var(--app-accent)'
+              : 'var(--app-surface-2)'}; color: {active
+              ? '#ffffff'
+              : 'var(--app-muted)'}"
+            onclick={() => setMode(value as SyncMode)}>{label}</button
+          >
+        {/each}
+      </div>
+
+      {#if syncStore.mode === "manual"}
+        <p class="text-xs" style="color: var(--app-muted)">
+          {$t("sync.mode_manual_desc")}
+        </p>
+      {:else}
+        <p class="text-xs" style="color: var(--app-muted)">
+          {$t("sync.mode_relay_desc")}
+        </p>
+
+        <label class="block space-y-1">
+          <span class="text-xs" style="color: var(--app-muted)"
+            >{$t("sync.relay_url")}</span
+          >
+          <input
+            type="url"
+            bind:value={relayUrl}
+            placeholder="https://…workers.dev"
+            autocapitalize="off"
+            autocomplete="off"
+            class="w-full rounded-lg px-3 py-2 text-sm"
+            style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
+          />
+        </label>
+
+        <label class="block space-y-1">
+          <span class="text-xs" style="color: var(--app-muted)"
+            >{$t("sync.relay_pass")}</span
+          >
+          <input
+            type="password"
+            bind:value={passphrase}
+            autocomplete="off"
+            class="w-full rounded-lg px-3 py-2 text-sm"
+            style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
+          />
+          <span class="text-[11px]" style="color: var(--app-muted); opacity: 0.7"
+            >{$t("sync.relay_pass_hint")}</span
+          >
+        </label>
+
+        <button
+          onclick={activateRelay}
+          disabled={syncing}
+          class="w-full py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+          style="background: var(--app-accent); color: #ffffff"
+          >{syncing ? $t("sync.importing") : $t("sync.relay_activate")}</button
+        >
+
+        {#if syncStore.relay}
+          <div
+            class="rounded-lg p-3 space-y-2"
+            style="background: var(--app-surface)"
+          >
+            <div class="flex justify-between text-xs gap-2">
+              <span class="flex-shrink-0" style="color: var(--app-muted)"
+                >{$t("sync.relay_id")}</span
+              >
+              <span class="font-mono truncate" style="color: var(--app-fg)"
+                >{syncStore.relay.id}</span
+              >
+            </div>
+            {#if syncStore.lastSync}
+              <div class="flex justify-between text-xs">
+                <span style="color: var(--app-muted)"
+                  >{$t("sync.last_sync")}</span
+                >
+                <span style="color: var(--app-muted)"
+                  >{relativeTime(syncStore.lastSync, $locale)}</span
+                >
+              </div>
+            {/if}
+            <div class="flex gap-2 pt-1">
+              <button
+                onclick={syncNow}
+                disabled={syncing}
+                class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+                style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+                >{syncing
+                  ? $t("sync.importing")
+                  : $t("sync.relay_sync_now")}</button
+              >
+              <button
+                onclick={copyConfig}
+                class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+                >{copied ? $t("sync.copied") : $t("sync.relay_copy")}</button
+              >
+            </div>
+            <button
+              onclick={disableRelay}
+              class="text-xs transition-opacity hover:opacity-70"
+              style="color: var(--err-text)">{$t("sync.relay_disable")}</button
+            >
+          </div>
+        {/if}
+
+        {#if relayMsg}
+          <p
+            class="text-xs"
+            style="color: {relayMsg.kind === 'ok'
+              ? 'var(--ok-title)'
+              : 'var(--err-text)'}"
+          >
+            {relayMsg.text}
+          </p>
+        {/if}
+      {/if}
+    </div>
   </div>
 </div>
