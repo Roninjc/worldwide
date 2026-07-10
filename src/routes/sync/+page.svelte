@@ -9,6 +9,25 @@
   import { syncFromRelay } from "$lib/sync";
   import { t, locale } from "svelte-i18n";
   import { consumePendingFiles } from "$lib/pendingShare";
+  import { flagEmoji } from "$lib/flag";
+  import { getCountryName, getAllCountryNames } from "$lib/countryName";
+  import type { LocationEntry } from "$lib/types";
+
+  // ── Gaps / manual fills ──────────────────────────────────────────────
+  const allCountries = $derived(getAllCountryNames($locale));
+
+  function gapDate(ms: number) {
+    return new Date(ms).toLocaleDateString($locale ?? "en", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  function changeCountry(entry: LocationEntry, code: string) {
+    if (!code || code === entry.isoCountryCode) return;
+    entriesStore.changeEntryCountry(entry, code, getCountryName(code, $locale));
+  }
 
   let isDragging = $state(false);
   let importing = $state(false);
@@ -280,6 +299,126 @@
             >
           </div>
         {/if}
+      </div>
+    {/if}
+
+    <!-- ── Gaps in the data ───────────────────────────────────────────── -->
+    {#if entriesStore.gaps.length > 0}
+      <div
+        class="rounded-xl p-4 space-y-3"
+        style="border: 1px solid var(--app-border)"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <p
+            class="text-xs uppercase tracking-wider"
+            style="color: var(--app-muted)"
+          >
+            {$t("sync.gaps_title")}
+          </p>
+          <span class="text-xs font-mono" style="color: var(--app-accent)"
+            >{entriesStore.gaps.length}</span
+          >
+        </div>
+        <p class="text-xs" style="color: var(--app-muted)">
+          {$t("sync.gaps_desc")}
+        </p>
+
+        <div class="space-y-2">
+          {#each entriesStore.gaps as gap (gap.isoCountryCode + "_" + gap.prevDate)}
+            <div class="flex items-center gap-3 text-sm">
+              <span class="text-lg leading-none"
+                >{flagEmoji(gap.isoCountryCode)}</span
+              >
+              <div class="flex-1 min-w-0">
+                <p class="truncate" style="color: var(--app-fg)">
+                  {getCountryName(gap.isoCountryCode, $locale)}
+                </p>
+                <p class="text-xs" style="color: var(--app-muted)">
+                  {gapDate(gap.missing[0])}{#if gap.missing.length > 1}
+                    → {gapDate(gap.missing[gap.missing.length - 1])}{/if}
+                  · {gap.missing.length}d
+                </p>
+              </div>
+              <button
+                onclick={() => entriesStore.fillGap(gap)}
+                class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                style="background: var(--app-accent); color: #ffffff"
+                >{$t("sync.gaps_fill")}</button
+              >
+            </div>
+          {/each}
+        </div>
+
+        {#if entriesStore.gaps.length > 1}
+          <button
+            onclick={() => entriesStore.fillAllGaps()}
+            class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+            style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+            >{$t("sync.gaps_fill_all")}</button
+          >
+        {/if}
+      </div>
+    {/if}
+
+    <!-- ── Manually filled days ───────────────────────────────────────── -->
+    {#if entriesStore.filledEntries.length > 0}
+      <div
+        class="rounded-xl p-4 space-y-3"
+        style="border: 1px solid var(--app-border)"
+      >
+        <p
+          class="text-xs uppercase tracking-wider"
+          style="color: var(--app-muted)"
+        >
+          {$t("sync.filled_title")}
+        </p>
+        <p class="text-xs" style="color: var(--app-muted)">
+          {$t("sync.filled_desc")}
+        </p>
+
+        <div class="space-y-2">
+          {#each entriesStore.filledEntries as entry (entry.isoCountryCode + "_" + entry.date)}
+            <div class="flex items-center gap-2 text-sm">
+              <span class="text-lg leading-none"
+                >{flagEmoji(entry.isoCountryCode)}</span
+              >
+              <span
+                class="text-xs w-24 flex-shrink-0"
+                style="color: var(--app-muted)">{gapDate(entry.date)}</span
+              >
+              <select
+                value={entry.isoCountryCode}
+                onchange={(e) => changeCountry(entry, e.currentTarget.value)}
+                class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
+                style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
+              >
+                {#each allCountries as c}
+                  <option value={c.code}>{c.name}</option>
+                {/each}
+              </select>
+              <button
+                onclick={() => entriesStore.removeEntry(entry)}
+                aria-label={$t("sync.filled_remove")}
+                class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
+                style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
+              >
+                <svg
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
+                </svg>
+              </button>
+            </div>
+          {/each}
+        </div>
       </div>
     {/if}
 

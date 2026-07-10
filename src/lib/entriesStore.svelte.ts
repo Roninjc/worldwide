@@ -1,5 +1,6 @@
-import { getAllEntries, importEntries, getEntryCount } from './db';
+import { getAllEntries, importEntries, deleteEntry, getEntryCount } from './db';
 import { computeCountryStats, getAvailableYears, countUniqueDays } from './stats';
+import { computeGaps, gapFillEntries, type Gap } from './gaps';
 import { syncStore } from './syncStore.svelte';
 import type { LocationEntry, CountryStat } from './types';
 
@@ -11,6 +12,10 @@ function createEntriesStore() {
 	const years = $derived(getAvailableYears(entries));
 	const totalDays = $derived(countUniqueDays(entries));
 	const totalCountries = $derived(countryStats.length);
+	const gaps = $derived(computeGaps(entries));
+	const filledEntries = $derived(
+		entries.filter((e) => e.filled).sort((a, b) => a.date - b.date)
+	);
 
 	async function load() {
 		entries = await getAllEntries();
@@ -33,6 +38,37 @@ function createEntriesStore() {
 		return { imported, total };
 	}
 
+	/** Fill a gap by adding one day per missing date (flagged `filled`). */
+	async function fillGap(gap: Gap) {
+		await importEntries(gapFillEntries(gap));
+		await load();
+	}
+
+	/** Fill every detected gap at once. */
+	async function fillAllGaps() {
+		const rows = gaps.flatMap(gapFillEntries);
+		if (rows.length === 0) return;
+		await importEntries(rows);
+		await load();
+	}
+
+	/** Remove an entry (undo a day filled by mistake). */
+	async function removeEntry(entry: LocationEntry) {
+		await deleteEntry(entry);
+		await load();
+	}
+
+	/** Change the country of a filled day, keeping the same date. */
+	async function changeEntryCountry(
+		entry: LocationEntry,
+		isoCountryCode: string,
+		country: string
+	) {
+		await deleteEntry(entry);
+		await importEntries([{ country, isoCountryCode, date: entry.date, filled: true }]);
+		await load();
+	}
+
 	return {
 		get entries() { return entries; },
 		get loaded() { return loaded; },
@@ -40,8 +76,14 @@ function createEntriesStore() {
 		get years() { return years; },
 		get totalDays() { return totalDays; },
 		get totalCountries() { return totalCountries; },
+		get gaps() { return gaps; },
+		get filledEntries() { return filledEntries; },
 		load,
-		importFiles
+		importFiles,
+		fillGap,
+		fillAllGaps,
+		removeEntry,
+		changeEntryCountry
 	};
 }
 

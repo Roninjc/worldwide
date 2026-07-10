@@ -585,7 +585,7 @@
           </div>
         {/if}
 
-        <!-- Top países -->
+        <!-- Top countries -->
         <div class="px-4 pb-5">
           <p
             class="text-xs uppercase tracking-wider mb-3"

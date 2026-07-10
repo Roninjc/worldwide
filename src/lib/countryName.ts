@@ -1,4 +1,4 @@
-import { getName, registerLocale } from "i18n-iso-countries";
+import { getName, getNames, registerLocale } from "i18n-iso-countries";
 
 // Register all supported locales
 import en from "i18n-iso-countries/langs/en.json";
@@ -24,4 +24,18 @@ export function getCountryName(
 ): string {
   const lang = (currentLocale ?? "en").split("-")[0];
   return getName(isoAlpha2, lang) ?? isoAlpha2;
+}
+
+/**
+ * All countries as `{ code, name }`, localized and sorted by name. Used to
+ * offer a picker when correcting a manually filled day.
+ */
+export function getAllCountryNames(
+  currentLocale: string | null | undefined,
+): { code: string; name: string }[] {
+  const lang = (currentLocale ?? "en").split("-")[0];
+  const names = getNames(lang) as Record<string, string>;
+  return Object.entries(names)
+    .map(([code, name]) => ({ code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, lang));
 }

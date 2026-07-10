@@ -22,7 +22,16 @@ export function buildColorMap(entries: LocationEntry[]): Map<string, string> {
 	return new Map(isos.map((iso, i) => [iso, PALETTE[i % PALETTE.length]]));
 }
 
-/** Group sorted day-entries into continuous stays (same country, no gap > 2 days) */
+/** Whether `curMs` falls on the same or the next calendar day as `prevMs`. */
+function isSameOrNextDay(prevMs: number, curMs: number): boolean {
+	const curKey = toDateKey(curMs);
+	if (toDateKey(prevMs) === curKey) return true;
+	const prev = new Date(prevMs);
+	const next = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1);
+	return toDateKey(next.getTime()) === curKey;
+}
+
+/** Group sorted day-entries into continuous stays (same country, no missing calendar days) */
 export function computeStays(entries: LocationEntry[]): Stay[] {
 	if (entries.length === 0) return [];
 
@@ -40,15 +49,14 @@ export function computeStays(entries: LocationEntry[]): Stay[] {
 
 	for (let i = 1; i < sorted.length; i++) {
 		const entry = sorted[i];
-		const gap = Math.round((entry.date - sorted[i - 1].date) / 86_400_000);
 
-		// TODO: gaps > 2 días en el mismo país se parten en stays distintos.
-		// Opciones futuras:
-		//   A) Avisar al usuario en el timeline de los días sin datos (mostrar bloque gris)
-		//   B) Permitir rellenar huecos manualmente desde /sync (añadir entrada con país + fecha)
-		//   C) Hacer la tolerancia configurable por el usuario en ajustes
-		// Por ahora se usa una tolerancia de 2 días como heurística razonable.
-		if (entry.isoCountryCode === current.isoCountryCode && gap <= 2) {
+		// A stay only continues while there are no missing calendar days: same
+		// country and same-or-next day. Any missing day splits the stay, leaving
+		// a visible gap the user can patch from /sync (see gaps.ts).
+		if (
+			entry.isoCountryCode === current.isoCountryCode &&
+			isSameOrNextDay(sorted[i - 1].date, entry.date)
+		) {
 			currentDates.add(toDateKey(entry.date));
 			current.endDate = entry.date;
 		} else {

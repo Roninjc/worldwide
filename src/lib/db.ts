@@ -52,6 +52,11 @@ export async function importEntries(entries: LocationEntry[]): Promise<number> {
 	return imported;
 }
 
+export async function deleteEntry(entry: LocationEntry): Promise<void> {
+	const db = await getDB();
+	await db.delete('entries', entryId(entry));
+}
+
 export async function getAllEntries(): Promise<LocationEntry[]> {
 	const db = await getDB();
 	const all = await db.getAllFromIndex('entries', 'by_date');
