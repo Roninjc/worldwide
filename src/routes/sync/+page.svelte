@@ -422,5 +422,12 @@
         {/if}
       {/if}
     </div>
+
+    <p
+      class="text-center text-[11px] pt-2"
+      style="color: var(--app-muted); opacity: 0.6"
+    >
+      worldwide · {__APP_VERSION__}
+    </p>
   </div>
 </div>

@@ -31,6 +31,8 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            APP_VERSION=${{ github.sha }}
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
@@ -45,6 +47,10 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
           script: |
+            docker image prune -f
+            docker builder prune -f
             docker compose -f /home/jake/compose.yml pull worldwide
             docker compose -f /home/jake/compose.yml up -d worldwide
+            docker image prune -f
