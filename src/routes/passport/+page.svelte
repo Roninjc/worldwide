@@ -3,6 +3,7 @@
   import { t, locale } from "svelte-i18n";
   import { flagEmoji } from "$lib/flag";
   import { getCountryName } from "$lib/countryName";
+  import NoData from "$lib/components/NoData.svelte";
   import {
     getContinent,
     CONTINENT_TOTALS,
@@ -62,8 +63,18 @@
   class="flex-1 overflow-y-auto"
   style="padding-bottom: var(--nav-clearance)"
 >
-  <div class="px-4 py-6 max-w-2xl mx-auto space-y-6">
-    <div class="flex items-start justify-between">
+  {#if !entriesStore.loaded}
+    <div
+      class="w-full min-h-[70vh] flex items-center justify-center text-sm"
+      style="color: var(--app-muted)"
+    >
+      {$t("loading")}
+    </div>
+  {:else if entriesStore.totalDays === 0}
+    <NoData />
+  {:else}
+    <div class="px-4 py-6 max-w-2xl mx-auto space-y-6">
+      <div class="flex items-start justify-between">
       <div>
         <h1 class="text-2xl font-bold" style="color: var(--app-fg)">
           {$t("passport.title")}
@@ -95,14 +106,6 @@
       </a>
     </div>
 
-    {#if entriesStore.totalDays === 0}
-      <p class="text-sm" style="color: var(--app-muted)">
-        {$t("passport.no_data")}
-        <a href="/sync" class="underline" style="color: var(--app-accent)"
-          >{$t("passport.import_json")}</a
-        >.
-      </p>
-    {:else}
       <!-- Global progress -->
       <div
         class="rounded-2xl p-5 space-y-3"
@@ -234,6 +237,6 @@
           </div>
         {/each}
       </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </div>

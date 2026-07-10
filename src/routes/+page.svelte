@@ -3,13 +3,12 @@
   import { tweened } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
   import { fade, fly } from "svelte/transition";
-  import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
   import { entriesStore } from "$lib/entriesStore.svelte";
   import { t, locale } from "svelte-i18n";
   import { getCountryName } from "$lib/countryName";
   import WorldMap from "$lib/components/WorldMap.svelte";
   import StaleBanner from "$lib/components/StaleBanner.svelte";
+  import NoData from "$lib/components/NoData.svelte";
   import { flagEmoji } from "$lib/flag";
   import {
     getLongestStreak,
@@ -17,12 +16,6 @@
     countUniqueDays,
   } from "$lib/stats";
   import { computeStays, buildColorMap, type Stay } from "$lib/stays";
-
-  onMount(() => {
-    if (entriesStore.loaded && entriesStore.totalDays === 0) {
-      goto("/sync");
-    }
-  });
 
   // ── Timeline data ──────────────────────────────────────────────────────
   const stays = $derived(computeStays(entriesStore.entries));
@@ -441,24 +434,7 @@
       {$t("loading")}
     </div>
   {:else if entriesStore.totalDays === 0}
-    <div
-      class="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center"
-    >
-      <p class="text-5xl">🌍</p>
-      <h2 class="text-xl font-bold" style="color: var(--app-fg)">
-        {$t("empty.no_data")}
-      </h2>
-      <p class="text-sm" style="color: var(--app-muted)">
-        {$t("empty.import_json")}
-      </p>
-      <a
-        href="/sync"
-        class="mt-2 px-5 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
-        style="background: var(--app-accent); color: #ffffff"
-      >
-        {$t("empty.go_to_sync")}
-      </a>
-    </div>
+    <NoData />
   {:else}
     <!-- Floating "data may be out of date" banner (both sync modes) -->
     <StaleBanner />

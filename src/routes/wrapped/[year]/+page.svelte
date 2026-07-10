@@ -4,6 +4,7 @@
   import { entriesStore } from "$lib/entriesStore.svelte";
   import { t, locale } from "svelte-i18n";
   import { getCountryName } from "$lib/countryName";
+  import NoData from "$lib/components/NoData.svelte";
   import {
     computeCountryStats,
     getMostTraveledMonth,
@@ -74,8 +75,18 @@
   class="flex-1 overflow-y-auto"
   style="padding-bottom: var(--nav-clearance)"
 >
-  <div class="max-w-lg mx-auto px-4 py-6 space-y-6">
-    <!-- Year navigation -->
+  {#if !entriesStore.loaded}
+    <div
+      class="w-full min-h-[70vh] flex items-center justify-center text-sm"
+      style="color: var(--app-muted)"
+    >
+      {$t("loading")}
+    </div>
+  {:else if entriesStore.totalDays === 0}
+    <NoData />
+  {:else}
+    <div class="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <!-- Year navigation -->
     <div class="flex items-center justify-between">
       <button
         class="text-sm px-2 py-1 transition-opacity hover:opacity-60 disabled:opacity-20 disabled:pointer-events-none"
@@ -345,5 +356,6 @@
         </div>
       {/if}
     {/if}
-  </div>
+    </div>
+  {/if}
 </div>
