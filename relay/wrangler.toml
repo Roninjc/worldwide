@@ -1,0 +1,10 @@
+name = "worldwide-relay"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+# Create the namespace once with:
+#   npx wrangler kv namespace create BLOBS
+# then paste the returned id below.
+[[kv_namespaces]]
+binding = "BLOBS"
+id = "efc307bb2f2c4a44bebc459c4d236d38"
