@@ -6,12 +6,13 @@
   import { syncStore, type SyncMode } from "$lib/syncStore.svelte";
   import { relativeTime } from "$lib/time";
   import { generateRelayId, generatePassphrase } from "$lib/crypto";
-  import { syncFromRelay, deleteFromRelay } from "$lib/sync";
+  import { syncFromRelay, deleteFromRelay, pushPatchesToRelay } from "$lib/sync";
   import { t, locale } from "svelte-i18n";
   import { consumePendingFiles } from "$lib/pendingShare";
   import { flagEmoji } from "$lib/flag";
   import { getCountryName, getAllCountryNames } from "$lib/countryName";
   import type { LocationEntry } from "$lib/types";
+  import type { Gap } from "$lib/gaps";
 
   // ── Gaps / manual fills ──────────────────────────────────────────────
   const allCountries = $derived(getAllCountryNames($locale));
@@ -24,9 +25,37 @@
     });
   }
 
-  function changeCountry(entry: LocationEntry, code: string) {
+  // After any change to the filled set, publish it to the relay's patches
+  // mailbox so Scriptable can merge it back into the yearly JSON (relay mode only).
+  async function syncPatches() {
+    if (syncStore.mode === "relay" && syncStore.relay) {
+      await pushPatchesToRelay(entriesStore.filledEntries);
+    }
+  }
+
+  async function fillGap(gap: Gap) {
+    await entriesStore.fillGap(gap);
+    await syncPatches();
+  }
+
+  async function fillAllGaps() {
+    await entriesStore.fillAllGaps();
+    await syncPatches();
+  }
+
+  async function removeFilled(entry: LocationEntry) {
+    await entriesStore.removeEntry(entry);
+    await syncPatches();
+  }
+
+  async function changeCountry(entry: LocationEntry, code: string) {
     if (!code || code === entry.isoCountryCode) return;
-    entriesStore.changeEntryCountry(entry, code, getCountryName(code, $locale));
+    await entriesStore.changeEntryCountry(
+      entry,
+      code,
+      getCountryName(code, $locale),
+    );
+    await syncPatches();
   }
 
   let isDragging = $state(false);
@@ -51,7 +80,7 @@
   // Same-device handoff: opening this URL switches to Scriptable, which writes
   // or clears the relay keys in its Keychain. No manual entry on that side.
   function openScriptableConfig(
-    action: "set" | "clear",
+    action: "set" | "clear" | "apply",
     params: Record<string, string> = {},
   ) {
     const qs = new URLSearchParams({ action, ...params }).toString();
@@ -381,7 +410,7 @@
                 </p>
               </div>
               <button
-                onclick={() => entriesStore.fillGap(gap)}
+                onclick={() => fillGap(gap)}
                 class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
                 style="background: var(--app-accent); color: #ffffff"
                 >{$t("sync.gaps_fill")}</button
@@ -392,7 +421,7 @@
 
         {#if entriesStore.gaps.length > 1}
           <button
-            onclick={() => entriesStore.fillAllGaps()}
+            onclick={fillAllGaps}
             class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
             style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
             >{$t("sync.gaps_fill_all")}</button
@@ -438,7 +467,7 @@
                 {/each}
               </select>
               <button
-                onclick={() => entriesStore.removeEntry(entry)}
+                onclick={() => removeFilled(entry)}
                 aria-label={$t("sync.filled_remove")}
                 class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
                 style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
@@ -460,6 +489,19 @@
             </div>
           {/each}
         </div>
+
+        {#if syncStore.mode === "relay" && syncStore.relay}
+          <!-- Force Scriptable to merge the repairs back into the JSON now -->
+          <button
+            onclick={() => openScriptableConfig("apply")}
+            class="w-full py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+            style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+            >{$t("sync.patches_apply")}</button
+          >
+          <p class="text-[11px]" style="color: var(--app-muted); opacity: 0.7">
+            {$t("sync.patches_apply_hint")}
+          </p>
+        {/if}
       </div>
     {/if}
 

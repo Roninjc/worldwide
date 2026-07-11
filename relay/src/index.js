@@ -12,7 +12,9 @@
 // is required to read or overwrite. Guessing it is infeasible, and even if leaked,
 // the contents stay encrypted.
 
-const ID_RE = /^[a-f0-9]{32,64}$/;
+// A 128–256 bit hex capability token, optionally namespaced with `_patches`
+// for the PWA's gap-repair mailbox (same capability, separate blob).
+const ID_RE = /^[a-f0-9]{32,64}(?:_patches)?$/;
 const MAX_BYTES = 2_000_000; // ~2 MB: generous for many years of daily entries
 
 function corsHeaders() {

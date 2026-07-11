@@ -62,9 +62,18 @@ async function run() {
 	check('OPTIONS → 204', res.status === 204);
 	check('OPTIONS advertises methods', /PUT/.test(res.headers.get('access-control-allow-methods') ?? ''));
 
+	// Patches mailbox key (hex id + _patches suffix)
+	const PID = `${ID}_patches`;
+	await worker.fetch(new Request(`${BASE}/${PID}`, { method: 'PUT', body: blob }), env);
+	res = await worker.fetch(new Request(`${BASE}/${PID}`), env);
+	check('patches key round-trips', (await res.text()) === blob);
+	check('patches key is separate from main blob', env.store.has(PID) && PID !== ID);
+
 	// Bad id
 	res = await worker.fetch(new Request(`${BASE}/not-hex!`), env);
 	check('invalid id → 400', res.status === 400);
+	res = await worker.fetch(new Request(`${BASE}/${ID}_other`), env);
+	check('unknown suffix → 400', res.status === 400);
 	res = await worker.fetch(new Request(`${BASE}/${'a'.repeat(20)}`), env);
 	check('too-short id → 400', res.status === 400);
 

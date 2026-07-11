@@ -80,6 +80,8 @@
   "sync.filled_title": "Manuelt utfylte dager",
   "sync.filled_desc": "Dager du la til manuelt. Du kan endre landet eller fjerne dem hvis det var en feil.",
   "sync.filled_remove": "Fjern dag",
+  "sync.patches_apply": "Bruk reparasjoner på iPhone",
+  "sync.patches_apply_hint": "Skriver disse reparasjonene tilbake til JSON-filene dine via Scriptable. Ellers brukes de automatisk neste gang widgeten registrerer en dag.",
   "wrapped.no_data": "Ingen data for {year}.",
   "wrapped.subtitle": "Ditt {year} i verden",
   "wrapped.countries": "land",

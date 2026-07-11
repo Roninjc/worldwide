@@ -80,6 +80,8 @@
   "sync.filled_title": "Días rellenados",
   "sync.filled_desc": "Días que añadiste a mano. Puedes cambiar el país o eliminarlos si fue un error.",
   "sync.filled_remove": "Eliminar día rellenado",
+  "sync.patches_apply": "Aplicar reparaciones en el iPhone",
+  "sync.patches_apply_hint": "Escribe estas reparaciones en tus archivos JSON vía Scriptable. Si no, se aplican solas la próxima vez que el widget registre un día.",
   "wrapped.no_data": "Sin datos para {year}.",
   "wrapped.subtitle": "Tu {year} en el mundo",
   "wrapped.countries": "países",

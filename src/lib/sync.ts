@@ -3,8 +3,9 @@
 // dataset only ever adds genuinely new days.
 
 import { syncStore, type RelayConfig } from './syncStore.svelte';
-import { decryptEntries } from './crypto';
+import { decryptEntries, encryptEntries } from './crypto';
 import { importEntries } from './db';
+import type { LocationEntry } from './types';
 
 export type RelaySyncResult =
 	| { ok: true; imported: number; empty?: boolean }
@@ -12,6 +13,11 @@ export type RelaySyncResult =
 
 function endpoint(cfg: RelayConfig): string {
 	return `${cfg.url.replace(/\/+$/, '')}/${cfg.id}`;
+}
+
+/** Separate blob holding the PWA's gap repairs, for Scriptable to merge back into the JSON. */
+function patchesEndpoint(cfg: RelayConfig): string {
+	return `${cfg.url.replace(/\/+$/, '')}/${cfg.id}_patches`;
 }
 
 /** Fetch + decrypt + import from the relay. Safe to call on every launch in relay mode. */
@@ -54,12 +60,39 @@ export async function syncFromRelay(cfg = syncStore.relay): Promise<RelaySyncRes
 	}
 }
 
-/** Delete the blob from the relay (used when disabling sync). Best effort. */
+/**
+ * Publish the current set of gap repairs (the full `filled` set) to the patches
+ * mailbox, encrypted. Scriptable merges them into the yearly JSON files on its
+ * next run. Idempotent by design: it always writes the full set, so re-applying
+ * is a no-op on the device (dedup by country + calendar day).
+ */
+export async function pushPatchesToRelay(
+	filled: LocationEntry[],
+	cfg = syncStore.relay
+): Promise<boolean> {
+	if (!cfg) return false;
+	try {
+		const blob = await encryptEntries(filled, cfg.pass);
+		const res = await fetch(patchesEndpoint(cfg), {
+			method: 'PUT',
+			headers: { 'Content-Type': 'text/plain' },
+			body: blob
+		});
+		return res.ok;
+	} catch {
+		return false;
+	}
+}
+
+/** Delete both the main blob and the patches mailbox (used when disabling sync). Best effort. */
 export async function deleteFromRelay(cfg = syncStore.relay): Promise<boolean> {
 	if (!cfg) return false;
 	try {
-		const res = await fetch(endpoint(cfg), { method: 'DELETE' });
-		return res.ok;
+		const [main] = await Promise.all([
+			fetch(endpoint(cfg), { method: 'DELETE' }),
+			fetch(patchesEndpoint(cfg), { method: 'DELETE' }).catch(() => undefined)
+		]);
+		return main.ok;
 	} catch {
 		return false;
 	}
