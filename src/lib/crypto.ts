@@ -69,3 +69,15 @@ export async function decryptEntries(blobB64: string, passphrase: string): Promi
 export function generateRelayId(): string {
 	return [...randomBytes(16)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+/**
+ * Generate a strong random passphrase (192-bit, URL-safe base64). It is never
+ * typed by the user: the app generates it, hands it to Scriptable via the
+ * deep link, and shows it once as a backup for the user to store.
+ */
+export function generatePassphrase(): string {
+	const bytes = randomBytes(24);
+	let bin = '';
+	for (const b of bytes) bin += String.fromCharCode(b);
+	return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}

@@ -53,3 +53,14 @@ export async function syncFromRelay(cfg = syncStore.relay): Promise<RelaySyncRes
 		return { ok: false, reason: 'unknown' };
 	}
 }
+
+/** Delete the blob from the relay (used when disabling sync). Best effort. */
+export async function deleteFromRelay(cfg = syncStore.relay): Promise<boolean> {
+	if (!cfg) return false;
+	try {
+		const res = await fetch(endpoint(cfg), { method: 'DELETE' });
+		return res.ok;
+	} catch {
+		return false;
+	}
+}

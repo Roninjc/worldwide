@@ -5,8 +5,8 @@
   import { entriesStore } from "$lib/entriesStore.svelte";
   import { syncStore, type SyncMode } from "$lib/syncStore.svelte";
   import { relativeTime } from "$lib/time";
-  import { generateRelayId } from "$lib/crypto";
-  import { syncFromRelay } from "$lib/sync";
+  import { generateRelayId, generatePassphrase } from "$lib/crypto";
+  import { syncFromRelay, deleteFromRelay } from "$lib/sync";
   import { t, locale } from "svelte-i18n";
   import { consumePendingFiles } from "$lib/pendingShare";
   import { flagEmoji } from "$lib/flag";
@@ -35,9 +35,10 @@
   let error = $state<string | null>(null);
 
   // ── Encrypted relay (automatic mode) ─────────────────────────────────
+  const SCRIPT_NAME = "WorldwideConfig";
+
   let relayUrl = $state(syncStore.relay?.url ?? "");
-  let passphrase = $state(syncStore.relay?.pass ?? "");
-  let relayId = $state(syncStore.relay?.id ?? "");
+  let restoreText = $state("");
   let syncing = $state(false);
   let copied = $state(false);
   let relayMsg = $state<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -47,6 +48,16 @@
     relayMsg = null;
   }
 
+  // Same-device handoff: opening this URL switches to Scriptable, which writes
+  // or clears the relay keys in its Keychain. No manual entry on that side.
+  function openScriptableConfig(
+    action: "set" | "clear",
+    params: Record<string, string> = {},
+  ) {
+    const qs = new URLSearchParams({ action, ...params }).toString();
+    window.location.href = `scriptable:///run/${SCRIPT_NAME}?${qs}`;
+  }
+
   async function activateRelay() {
     relayMsg = null;
     const url = relayUrl.trim();
@@ -54,14 +65,20 @@
       relayMsg = { kind: "err", text: $t("sync.relay_need_url") };
       return;
     }
-    if (passphrase.length < 6) {
-      relayMsg = { kind: "err", text: $t("sync.relay_need_pass") };
-      return;
-    }
-    if (!relayId) relayId = generateRelayId();
-    syncStore.setRelay({ url, id: relayId, pass: passphrase });
+    // The app owns the credentials: it mints the id + passphrase and hands
+    // them to Scriptable via the deep link. The user backs them up (below).
+    const id = generateRelayId();
+    const pass = generatePassphrase();
+    syncStore.setRelay({ url, id, pass });
     syncStore.mode = "relay";
-    await syncNow();
+    relayMsg = { kind: "ok", text: $t("sync.relay_activated_hint") };
+    openScriptableConfig("set", { url, id, pass });
+  }
+
+  function reconfigureScriptable() {
+    if (!syncStore.relay) return;
+    const { url, id, pass } = syncStore.relay;
+    openScriptableConfig("set", { url, id, pass });
   }
 
   async function syncNow() {
@@ -89,18 +106,42 @@
     }
   }
 
-  function disableRelay() {
+  async function deactivateRelay() {
+    const cfg = syncStore.relay;
+    // Delete the blob first (needs the config), then drop local state, then
+    // tell Scriptable to forget its keys (this last step navigates away).
+    if (cfg) await deleteFromRelay(cfg);
     syncStore.setRelay(null);
     syncStore.mode = "manual";
-    relayId = "";
     relayMsg = null;
+    if (cfg) openScriptableConfig("clear");
   }
 
-  async function copyConfig() {
+  async function restoreRelay() {
+    relayMsg = null;
+    let cfg: { url?: string; id?: string; pass?: string } | null = null;
+    try {
+      cfg = JSON.parse(restoreText.trim());
+    } catch {
+      cfg = null;
+    }
+    if (!cfg || !cfg.url || !cfg.id || !cfg.pass) {
+      relayMsg = { kind: "err", text: $t("sync.relay_restore_bad") };
+      return;
+    }
+    syncStore.setRelay({ url: cfg.url, id: cfg.id, pass: cfg.pass });
+    syncStore.mode = "relay";
+    relayUrl = cfg.url;
+    restoreText = "";
+    await syncNow();
+  }
+
+  async function copyBackup() {
     if (!syncStore.relay) return;
     const cfg = JSON.stringify({
       url: syncStore.relay.url,
       id: syncStore.relay.id,
+      pass: syncStore.relay.pass,
     });
     try {
       await navigator.clipboard.writeText(cfg);
@@ -462,46 +503,64 @@
           {$t("sync.mode_relay_desc")}
         </p>
 
-        <label class="block space-y-1">
-          <span class="text-xs" style="color: var(--app-muted)"
-            >{$t("sync.relay_url")}</span
-          >
-          <input
-            type="url"
-            bind:value={relayUrl}
-            placeholder="https://…workers.dev"
-            autocapitalize="off"
-            autocomplete="off"
-            class="w-full rounded-lg px-3 py-2 text-sm"
-            style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
-          />
-        </label>
+        {#if !syncStore.relay}
+          <!-- Not configured: enter the relay URL, then hand off to Scriptable -->
+          <label class="block space-y-1">
+            <span class="text-xs" style="color: var(--app-muted)"
+              >{$t("sync.relay_url")}</span
+            >
+            <input
+              type="url"
+              bind:value={relayUrl}
+              placeholder="https://…workers.dev"
+              autocapitalize="off"
+              autocomplete="off"
+              class="w-full rounded-lg px-3 py-2 text-sm"
+              style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
+            />
+          </label>
 
-        <label class="block space-y-1">
-          <span class="text-xs" style="color: var(--app-muted)"
-            >{$t("sync.relay_pass")}</span
+          <button
+            onclick={activateRelay}
+            class="w-full py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+            style="background: var(--app-accent); color: #ffffff"
+            >{$t("sync.relay_activate")}</button
           >
-          <input
-            type="password"
-            bind:value={passphrase}
-            autocomplete="off"
-            class="w-full rounded-lg px-3 py-2 text-sm"
-            style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
-          />
-          <span class="text-[11px]" style="color: var(--app-muted); opacity: 0.7"
-            >{$t("sync.relay_pass_hint")}</span
-          >
-        </label>
 
-        <button
-          onclick={activateRelay}
-          disabled={syncing}
-          class="w-full py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-          style="background: var(--app-accent); color: #ffffff"
-          >{syncing ? $t("sync.importing") : $t("sync.relay_activate")}</button
-        >
-
-        {#if syncStore.relay}
+          <!-- Restore from a previously saved backup config -->
+          <details class="pt-1">
+            <summary
+              class="text-xs cursor-pointer"
+              style="color: var(--app-muted)"
+            >
+              {$t("sync.relay_restore_title")}
+            </summary>
+            <div class="space-y-2 pt-2">
+              <p
+                class="text-[11px]"
+                style="color: var(--app-muted); opacity: 0.7"
+              >
+                {$t("sync.relay_restore_hint")}
+              </p>
+              <textarea
+                bind:value={restoreText}
+                rows="2"
+                placeholder={'{"url":"…","id":"…","pass":"…"}'}
+                autocapitalize="off"
+                autocomplete="off"
+                class="w-full rounded-lg px-3 py-2 text-xs font-mono"
+                style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
+              ></textarea>
+              <button
+                onclick={restoreRelay}
+                class="w-full py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+                >{$t("sync.relay_restore_btn")}</button
+              >
+            </div>
+          </details>
+        {:else}
+          <!-- Configured: id, backup, and management actions -->
           <div
             class="rounded-lg p-3 space-y-2"
             style="background: var(--app-surface)"
@@ -524,29 +583,52 @@
                 >
               </div>
             {/if}
-            <div class="flex gap-2 pt-1">
-              <button
-                onclick={syncNow}
-                disabled={syncing}
-                class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-                style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-                >{syncing
-                  ? $t("sync.importing")
-                  : $t("sync.relay_sync_now")}</button
-              >
-              <button
-                onclick={copyConfig}
-                class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-                >{copied ? $t("sync.copied") : $t("sync.relay_copy")}</button
-              >
-            </div>
+          </div>
+
+          <!-- Backup: the only copy of the passphrase the user can keep -->
+          <div
+            class="rounded-lg p-3 space-y-2"
+            style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
+          >
+            <p class="text-xs font-medium" style="color: var(--ok-title)">
+              {$t("sync.relay_backup_title")}
+            </p>
+            <p class="text-[11px]" style="color: var(--ok-body)">
+              {$t("sync.relay_backup_warn")}
+            </p>
             <button
-              onclick={disableRelay}
-              class="text-xs transition-opacity hover:opacity-70"
-              style="color: var(--err-text)">{$t("sync.relay_disable")}</button
+              onclick={copyBackup}
+              class="w-full py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+              style="background: var(--app-accent); color: #ffffff"
+              >{copied
+                ? $t("sync.copied")
+                : $t("sync.relay_backup_copy")}</button
             >
           </div>
+
+          <div class="flex gap-2">
+            <button
+              onclick={syncNow}
+              disabled={syncing}
+              class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+              style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+              >{syncing
+                ? $t("sync.importing")
+                : $t("sync.relay_sync_now")}</button
+            >
+            <button
+              onclick={reconfigureScriptable}
+              class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+              style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+              >{$t("sync.relay_reconfigure")}</button
+            >
+          </div>
+
+          <button
+            onclick={deactivateRelay}
+            class="text-xs transition-opacity hover:opacity-70"
+            style="color: var(--err-text)">{$t("sync.relay_disable")}</button
+          >
         {/if}
 
         {#if relayMsg}
