@@ -1,5 +1,5 @@
 // Round-trip test for the relay handler using a Map-backed KV stub.
-// Verifies PUT/GET, CORS, 404, id validation, method handling and the size cap.
+// Verifies PUT/GET/DELETE, CORS, 404, id validation, method handling and the size cap.
 // Run with: node test.mjs   (Node 20+ provides global Request/Response/URL)
 
 import worker from './src/index.js';
@@ -10,7 +10,8 @@ function makeEnv() {
 		store,
 		BLOBS: {
 			get: async (k) => (store.has(k) ? store.get(k) : null),
-			put: async (k, v) => void store.set(k, v)
+			put: async (k, v) => void store.set(k, v),
+			delete: async (k) => void store.delete(k)
 		}
 	};
 }
@@ -71,9 +72,17 @@ async function run() {
 	res = await worker.fetch(new Request(`${BASE}/`), env);
 	check('health / → 200', res.status === 200);
 
-	// Method not allowed
+	// DELETE removes the blob
+	await worker.fetch(new Request(`${BASE}/${ID}`, { method: 'PUT', body: blob }), env);
 	res = await worker.fetch(new Request(`${BASE}/${ID}`, { method: 'DELETE' }), env);
-	check('DELETE → 405', res.status === 405);
+	check('DELETE → 200', res.status === 200);
+	check('DELETE removes from KV', !env.store.has(ID));
+	res = await worker.fetch(new Request(`${BASE}/${ID}`), env);
+	check('GET after DELETE → 404', res.status === 404);
+
+	// Method not allowed
+	res = await worker.fetch(new Request(`${BASE}/${ID}`, { method: 'PATCH' }), env);
+	check('PATCH → 405', res.status === 405);
 
 	// Size cap
 	const huge = 'x'.repeat(2_000_001);

@@ -4,8 +4,9 @@
 // The relay CANNOT read locations: the payload is AES/secretbox ciphertext whose
 // key is derived from a passphrase that never leaves the user's devices.
 //
-//   PUT /{id}   body = base64 ciphertext   → stores it       (Scriptable publishes)
-//   GET /{id}                              → returns ciphertext (PWA fetches on launch)
+//   PUT    /{id}   body = base64 ciphertext → stores it       (Scriptable publishes)
+//   GET    /{id}                            → returns ciphertext (PWA fetches on launch)
+//   DELETE /{id}                            → removes it        (PWA disables sync)
 //
 // The `id` is a 128–256 bit random hex token that acts as a capability: knowing it
 // is required to read or overwrite. Guessing it is infeasible, and even if leaked,
@@ -17,7 +18,7 @@ const MAX_BYTES = 2_000_000; // ~2 MB: generous for many years of daily entries
 function corsHeaders() {
 	return {
 		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
+		'Access-Control-Allow-Methods': 'GET,PUT,DELETE,OPTIONS',
 		'Access-Control-Allow-Headers': 'content-type',
 		'Access-Control-Max-Age': '86400'
 	};
@@ -66,6 +67,11 @@ export default {
 			return text(value, 200);
 		}
 
-		return text('method not allowed', 405, { Allow: 'GET, PUT, OPTIONS' });
+		if (request.method === 'DELETE') {
+			await env.BLOBS.delete(id);
+			return text('ok', 200);
+		}
+
+		return text('method not allowed', 405, { Allow: 'GET, PUT, DELETE, OPTIONS' });
 	}
 };
