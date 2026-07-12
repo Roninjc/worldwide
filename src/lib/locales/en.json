@@ -121,5 +121,10 @@
   "continent.america": "Americas",
   "continent.oceania": "Oceania",
   "continent.antarctica": "Antarctica",
-  "footer.copyright": "Copyright © 2026 Worldwide"
+  "footer.copyright": "Copyright © 2026 Worldwide",
+  "sync.patches_local_hint": "No server needed: apply your repairs straight to this device, or scan the QR from your iPhone.",
+  "sync.patches_qr_show": "Show QR",
+  "sync.patches_qr_hide": "Hide QR",
+  "sync.patches_qr_hint": "Scan it with your iPhone camera, then open in Scriptable to apply on that device.",
+  "sync.patches_qr_toobig": "Too many repairs to fit in a QR. Use the button above on your iPhone, or enable automatic sync."
 }

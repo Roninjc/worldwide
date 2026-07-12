@@ -121,5 +121,10 @@
   "continent.america": "Amériques",
   "continent.oceania": "Océanie",
   "continent.antarctica": "Antarctique",
-  "footer.copyright": "Copyright © 2026 Mondiale"
+  "footer.copyright": "Copyright © 2026 Mondiale",
+  "sync.patches_local_hint": "Sans serveur : appliquez vos corrections directement sur cet appareil, ou scannez le QR depuis votre iPhone.",
+  "sync.patches_qr_show": "Afficher le QR",
+  "sync.patches_qr_hide": "Masquer le QR",
+  "sync.patches_qr_hint": "Scannez-le avec l’appareil photo de votre iPhone, puis ouvrez-le dans Scriptable pour l’appliquer sur cet appareil.",
+  "sync.patches_qr_toobig": "Trop de corrections pour un QR. Utilisez le bouton ci-dessus sur votre iPhone, ou activez la synchronisation automatique."
 }

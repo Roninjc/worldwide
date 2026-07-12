@@ -10,6 +10,7 @@
   import { consumePendingFiles } from "$lib/pendingShare";
   import { flagEmoji } from "$lib/flag";
   import { getCountryName, getAllCountryNames } from "$lib/countryName";
+  import QRCode from "qrcode";
   import type { LocationEntry } from "$lib/types";
   import type { Gap } from "$lib/gaps";
 
@@ -114,6 +115,48 @@
     const qs = new URLSearchParams({ action, ...params }).toString();
     window.location.href = `scriptable:///run/${SCRIPT_NAME}?${qs}`;
   }
+
+  // ── Server-less apply (4a): the fills travel inline via a scriptable:// deep
+  // link — tapped on the same device, or scanned as a QR from another one. ──
+  let showQr = $state(false);
+  let qrDataUrl = $state("");
+  let qrError = $state(false);
+
+  function patchDeepLink(): string {
+    const data = JSON.stringify(
+      entriesStore.filledEntries.map((e) => ({
+        i: e.isoCountryCode,
+        d: e.date,
+        c: e.country,
+      })),
+    );
+    const qs = new URLSearchParams({ action: "patch", data }).toString();
+    return `scriptable:///run/${SCRIPT_NAME}?${qs}`;
+  }
+
+  function applyPatchesInline() {
+    window.location.href = patchDeepLink();
+  }
+
+  // Regenerate the QR whenever it's shown and the repair set changes.
+  $effect(() => {
+    if (!showQr) return;
+    const link = patchDeepLink();
+    QRCode.toDataURL(link, {
+      margin: 1,
+      width: 320,
+      errorCorrectionLevel: "L",
+      color: { dark: "#000000", light: "#ffffff" },
+    })
+      .then((url) => {
+        qrDataUrl = url;
+        qrError = false;
+      })
+      .catch(() => {
+        qrDataUrl = "";
+        qrError = true;
+      });
+  });
 
   async function activateRelay() {
     relayMsg = null;
@@ -818,6 +861,54 @@
             </div>
           </div>
         </details>
+
+        {#if syncStore.mode === "manual"}
+          <!-- Server-less apply (4a): tap on this device, or QR for another one -->
+          <div
+            class="mt-4 pt-4 space-y-3 border-t"
+            style="border-color: var(--app-border)"
+          >
+            <p class="text-xs" style="color: var(--app-muted)">
+              {$t("sync.patches_local_hint")}
+            </p>
+            <div class="flex gap-2">
+              <button
+                onclick={applyPatchesInline}
+                class="flex-1 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                style="background: var(--app-accent); color: #ffffff"
+                >{$t("sync.patches_apply")}</button
+              >
+              <button
+                onclick={() => (showQr = !showQr)}
+                class="flex-1 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+                >{showQr
+                  ? $t("sync.patches_qr_hide")
+                  : $t("sync.patches_qr_show")}</button
+              >
+            </div>
+
+            {#if showQr}
+              {#if qrError}
+                <p class="text-xs" style="color: var(--err-text)">
+                  {$t("sync.patches_qr_toobig")}
+                </p>
+              {:else}
+                <div class="flex flex-col items-center gap-2 py-1">
+                  <div class="rounded-xl bg-white p-2">
+                    <img src={qrDataUrl} alt="QR" class="w-44 h-44 block" />
+                  </div>
+                  <p
+                    class="text-[11px] text-center max-w-xs"
+                    style="color: var(--app-muted)"
+                  >
+                    {$t("sync.patches_qr_hint")}
+                  </p>
+                </div>
+              {/if}
+            {/if}
+          </div>
+        {/if}
       </section>
     {/if}
 

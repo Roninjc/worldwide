@@ -121,5 +121,10 @@
   "continent.america": "Amerika",
   "continent.oceania": "Oseania",
   "continent.antarctica": "Antarktis",
-  "footer.copyright": "Copyright © 2026 Verdensomspennende"
+  "footer.copyright": "Copyright © 2026 Verdensomspennende",
+  "sync.patches_local_hint": "Uten server: bruk reparasjonene direkte på denne enheten, eller skann QR-koden fra iPhone-en din.",
+  "sync.patches_qr_show": "Vis QR",
+  "sync.patches_qr_hide": "Skjul QR",
+  "sync.patches_qr_hint": "Skann den med iPhone-kameraet og åpne i Scriptable for å bruke den på den enheten.",
+  "sync.patches_qr_toobig": "For mange reparasjoner for en QR-kode. Bruk knappen over på iPhone-en din, eller aktiver automatisk synkronisering."
 }
