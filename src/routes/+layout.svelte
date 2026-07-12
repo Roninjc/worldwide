@@ -11,6 +11,7 @@
   import { syncFromRelay } from "$lib/sync";
   import InstallBanner from "$lib/components/InstallBanner.svelte";
   import StaleBanner from "$lib/components/StaleBanner.svelte";
+  import GapsBanner from "$lib/components/GapsBanner.svelte";
 
   let { children } = $props();
 
@@ -158,6 +159,9 @@
       <InstallBanner />
       {#if $page.url.pathname === "/"}
         <StaleBanner />
+      {/if}
+      {#if $page.url.pathname !== "/sync"}
+        <GapsBanner />
       {/if}
     </div>
 

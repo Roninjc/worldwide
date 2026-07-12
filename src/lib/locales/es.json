@@ -75,6 +75,7 @@
   "sync.relay_restore_bad": "Esa config de respaldo no es válida.",
   "sync.gaps_title": "Huecos en los datos",
   "sync.gaps_desc": "Estos días no tienen datos, pero claramente estuviste en el mismo país justo antes y después. ¿Quieres rellenarlos?",
+  "sync.gaps_banner_body": "{count, plural, one {# hueco que puedes rellenar} other {# huecos que puedes rellenar}}",
   "sync.gaps_fill": "Rellenar",
   "sync.gaps_fill_all": "Rellenar todos",
   "sync.filled_title": "Días rellenados",

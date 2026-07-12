@@ -75,6 +75,7 @@
   "sync.relay_restore_bad": "Diese Backup-Konfiguration ist ungültig.",
   "sync.gaps_title": "Lücken in den Daten",
   "sync.gaps_desc": "An diesen Tagen fehlen Daten, aber du warst davor und danach klar im selben Land. Ausfüllen?",
+  "sync.gaps_banner_body": "{count, plural, one {# Lücke zum Ausfüllen} other {# Lücken zum Ausfüllen}}",
   "sync.gaps_fill": "Ausfüllen",
   "sync.gaps_fill_all": "Alle ausfüllen",
   "sync.filled_title": "Manuell ausgefüllte Tage",

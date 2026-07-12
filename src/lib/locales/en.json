@@ -75,6 +75,7 @@
   "sync.relay_restore_bad": "That backup config isn't valid.",
   "sync.gaps_title": "Gaps in your data",
   "sync.gaps_desc": "These days have no data, but you were clearly in the same country right before and after. Want to fill them in?",
+  "sync.gaps_banner_body": "{count, plural, one {# gap you can fill in} other {# gaps you can fill in}}",
   "sync.gaps_fill": "Fill",
   "sync.gaps_fill_all": "Fill all",
   "sync.filled_title": "Manually filled days",

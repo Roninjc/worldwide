@@ -75,6 +75,7 @@
   "sync.relay_restore_bad": "Cette config de sauvegarde n'est pas valide.",
   "sync.gaps_title": "Trous dans les données",
   "sync.gaps_desc": "Ces jours n'ont pas de données, mais vous étiez clairement dans le même pays juste avant et après. Les compléter ?",
+  "sync.gaps_banner_body": "{count, plural, one {# lacune à compléter} other {# lacunes à compléter}}",
   "sync.gaps_fill": "Compléter",
   "sync.gaps_fill_all": "Tout compléter",
   "sync.filled_title": "Jours complétés manuellement",

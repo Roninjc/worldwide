@@ -75,6 +75,7 @@
   "sync.relay_restore_bad": "Den backup-konfigurasjonen er ikke gyldig.",
   "sync.gaps_title": "Hull i dataene",
   "sync.gaps_desc": "Disse dagene mangler data, men du var tydelig i samme land rett før og etter. Vil du fylle dem inn?",
+  "sync.gaps_banner_body": "{count, plural, one {# hull du kan fylle inn} other {# hull du kan fylle inn}}",
   "sync.gaps_fill": "Fyll inn",
   "sync.gaps_fill_all": "Fyll inn alle",
   "sync.filled_title": "Manuelt utfylte dager",
