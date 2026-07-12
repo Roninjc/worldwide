@@ -22,11 +22,9 @@
 
   const hasGaps = $derived(entriesStore.gaps.length > 0);
   const hasFilled = $derived(entriesStore.filledEntries.length > 0);
-  // Manual mode has unapplied changes (kept visible even at zero repairs so a
+  // Unapplied repair changes (kept visible even at zero repairs so a
   // "delete all" can still be committed to the device).
-  const manualPending = $derived(
-    syncStore.mode === "manual" && syncStore.patchesPending,
-  );
+  const pendingChanges = $derived(syncStore.patchesPending);
 
   function gapDate(ms: number) {
     return new Date(ms).toLocaleDateString($locale ?? "en", {
@@ -115,6 +113,10 @@
     }
     syncStore.mode = mode;
     relayMsg = null;
+    // Entering relay with an already-configured relay: the patches mailbox may
+    // be stale (repairs edited in manual mode don't publish). Republish the
+    // current set so "apply" reconciles the device to exactly what's shown here.
+    if (mode === "relay" && syncStore.relay) markRepairChange();
   }
 
   async function confirmDisableRelay() {
@@ -189,6 +191,12 @@
     const pass = generatePassphrase();
     syncStore.setRelay({ url, id, pass });
     syncStore.mode = "relay";
+    // Seed the new mailbox with any repairs already made, so the first device
+    // sync reconciles to what the PWA shows instead of an empty set.
+    if (entriesStore.filledEntries.length > 0) {
+      await pushPatchesToRelay(entriesStore.filledEntries);
+      syncStore.patchesPending = true;
+    }
     relayMsg = { kind: "ok", text: $t("sync.relay_activated_hint") };
     openScriptableConfig("set", { url, id, pass });
   }
@@ -676,34 +684,6 @@
               >{$t("sync.relay_reconfigure")}</button
             >
           </div>
-
-          <!-- Apply repairs to the iPhone JSON. Always available here (even at
-               zero repairs) so a "delete all" can be committed too. Disabled
-               while a patch push is still settling on the relay. -->
-          <button
-            onclick={applyOnDevice}
-            disabled={patchesBusy}
-            class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-60"
-            style="background: {syncStore.patchesPending && !patchesBusy
-              ? 'var(--app-accent)'
-              : 'var(--app-surface-2)'}; color: {syncStore.patchesPending &&
-            !patchesBusy
-              ? '#ffffff'
-              : 'var(--app-fg)'}; border: 1px solid {syncStore.patchesPending &&
-            !patchesBusy
-              ? 'var(--app-accent)'
-              : 'var(--app-border)'}"
-            >{patchesBusy
-              ? $t("sync.patches_preparing")
-              : $t("sync.patches_apply")}</button
-          >
-          <p class="text-[11px]" style="color: var(--app-muted); opacity: 0.7">
-            {patchesBusy
-              ? $t("sync.patches_preparing_hint")
-              : syncStore.patchesPending
-                ? $t("sync.patches_unsaved")
-                : $t("sync.patches_apply_hint")}
-          </p>
         {/if}
 
         {#if relayMsg}
@@ -720,7 +700,7 @@
     </section>
 
     <!-- ── Data repairs: gaps + manual fills, unified ─────────────────── -->
-    {#if hasGaps || hasFilled || manualPending}
+    {#if hasGaps || hasFilled || pendingChanges}
       <section
         class="rounded-2xl p-5 space-y-5"
         style="background: var(--app-surface)"
@@ -808,14 +788,46 @@
         {/if}
 
         <!-- Repairs area: pending changes (apply controls) above, list below -->
-        {#if hasFilled || manualPending}
+        {#if hasFilled || pendingChanges}
           <div class="space-y-4" transition:slide={{ duration: 240, easing: cubicOut }}>
             {#if hasGaps}
               <div class="border-t" style="border-color: var(--app-border)"></div>
             {/if}
 
-            <!-- Server-less apply (4a): tap on this device, or QR for another -->
-            {#if syncStore.mode === "manual"}
+            {#if syncStore.mode === "relay" && syncStore.relay}
+              <!-- Relay apply: push already happened on change; this tells the
+                   device to pull + reconcile now. Disabled while KV settles. -->
+              <div class="space-y-2">
+                <button
+                  onclick={applyOnDevice}
+                  disabled={patchesBusy}
+                  class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-60"
+                  style="background: {pendingChanges && !patchesBusy
+                    ? 'var(--app-accent)'
+                    : 'var(--app-surface-2)'}; color: {pendingChanges &&
+                  !patchesBusy
+                    ? '#ffffff'
+                    : 'var(--app-fg)'}; border: 1px solid {pendingChanges &&
+                  !patchesBusy
+                    ? 'var(--app-accent)'
+                    : 'var(--app-border)'}"
+                  >{patchesBusy
+                    ? $t("sync.patches_preparing")
+                    : $t("sync.patches_apply")}</button
+                >
+                <p
+                  class="text-[11px]"
+                  style="color: var(--app-muted); opacity: 0.7"
+                >
+                  {patchesBusy
+                    ? $t("sync.patches_preparing_hint")
+                    : pendingChanges
+                      ? $t("sync.patches_unsaved")
+                      : $t("sync.patches_apply_hint")}
+                </p>
+              </div>
+            {:else if syncStore.mode === "manual"}
+              <!-- Server-less apply (4a): tap on this device, or QR for another -->
               <div class="space-y-3">
                 <p class="text-xs" style="color: var(--app-muted)">
                   {hasFilled
