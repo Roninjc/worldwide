@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { slide } from "svelte/transition";
+  import { flip } from "svelte/animate";
+  import { cubicOut } from "svelte/easing";
   import { page } from "$app/stores";
   import { entriesStore } from "$lib/entriesStore.svelte";
   import { syncStore, type SyncMode } from "$lib/syncStore.svelte";
@@ -701,11 +704,12 @@
       {/if}
     </section>
 
-    <!-- ── Gaps in the data ───────────────────────────────────────────── -->
-    {#if entriesStore.gaps.length > 0}
+    <!-- ── Data repairs: gaps + manual fills, unified ─────────────────── -->
+    {#if entriesStore.gaps.length > 0 || entriesStore.filledEntries.length > 0}
       <section
-        class="rounded-2xl p-5 space-y-4"
+        class="rounded-2xl p-5 space-y-5"
         style="background: var(--app-surface)"
+        transition:slide={{ duration: 260, easing: cubicOut }}
       >
         <div class="flex items-center gap-2.5">
           <svg
@@ -718,194 +722,212 @@
             stroke-linecap="round"
             stroke-linejoin="round"
           >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
+            <path
+              d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+            />
           </svg>
           <h2 class="text-sm font-semibold" style="color: var(--app-fg)">
-            {$t("sync.gaps_title")}
+            {$t("sync.repairs_title")}
           </h2>
-          <span
-            class="ml-auto text-xs font-mono px-2 py-0.5 rounded-full"
-            style="background: var(--app-accent-subtle); color: var(--app-accent)"
-            >{entriesStore.gaps.length}</span
-          >
         </div>
-        <p class="text-xs" style="color: var(--app-muted)">
-          {$t("sync.gaps_desc")}
-        </p>
 
-        <div class="space-y-2">
-          {#each entriesStore.gaps as gap (gap.isoCountryCode + "_" + gap.prevDate)}
-            <div
-              class="flex items-center gap-3 text-sm rounded-xl px-3 py-2"
-              style="background: var(--app-surface-2)"
-            >
-              <span class="text-lg leading-none"
-                >{flagEmoji(gap.isoCountryCode)}</span
+        <!-- Gaps to fill -->
+        {#if entriesStore.gaps.length > 0}
+          <div class="space-y-3" transition:slide={{ duration: 240, easing: cubicOut }}>
+            <div class="flex items-center gap-2">
+              <p
+                class="text-xs uppercase tracking-wider"
+                style="color: var(--app-muted)"
               >
-              <div class="flex-1 min-w-0">
-                <p class="truncate" style="color: var(--app-fg)">
-                  {getCountryName(gap.isoCountryCode, $locale)}
-                </p>
-                <p class="text-xs" style="color: var(--app-muted)">
-                  {gapDate(gap.missing[0])}{#if gap.missing.length > 1}
-                    → {gapDate(gap.missing[gap.missing.length - 1])}{/if}
-                  · {gap.missing.length}d
-                </p>
-              </div>
-              <button
-                onclick={() => fillGap(gap)}
-                class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                style="background: var(--app-accent); color: #ffffff"
-                >{$t("sync.gaps_fill")}</button
+                {$t("sync.gaps_title")}
+              </p>
+              <span
+                class="text-[11px] font-mono px-2 py-0.5 rounded-full"
+                style="background: var(--app-accent-subtle); color: var(--app-accent)"
+                >{entriesStore.gaps.length}</span
               >
             </div>
-          {/each}
-        </div>
-
-        {#if entriesStore.gaps.length > 1}
-          <button
-            onclick={fillAllGaps}
-            class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-            style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-            >{$t("sync.gaps_fill_all")}</button
-          >
-        {/if}
-      </section>
-    {/if}
-
-    <!-- ── Manual repairs (collapsible; can grow over time) ───────────── -->
-    {#if entriesStore.filledEntries.length > 0}
-      <section
-        class="rounded-2xl p-5"
-        style="background: var(--app-surface)"
-      >
-        <details>
-          <summary
-            class="flex items-center gap-2.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden"
-          >
-            <svg
-              class="w-[18px] h-[18px] flex-shrink-0"
-              style="color: var(--app-muted)"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path
-                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-              />
-            </svg>
-            <h2 class="text-sm font-semibold" style="color: var(--app-fg)">
-              {$t("sync.filled_title")}
-            </h2>
-            <span
-              class="ml-auto text-xs font-mono px-2 py-0.5 rounded-full"
-              style="background: var(--app-surface-2); color: var(--app-muted)"
-              >{entriesStore.filledEntries.length}</span
-            >
-            <span class="text-xs" style="color: var(--app-muted); opacity: 0.6"
-              >▾</span
-            >
-          </summary>
-
-          <div class="pt-4 space-y-3">
             <p class="text-xs" style="color: var(--app-muted)">
-              {$t("sync.filled_desc")}
+              {$t("sync.gaps_desc")}
             </p>
-            <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {#each entriesStore.filledEntries as entry (entry.isoCountryCode + "_" + entry.date)}
-                <div class="flex items-center gap-2 text-sm">
+
+            <div class="space-y-2">
+              {#each entriesStore.gaps as gap (gap.isoCountryCode + "_" + gap.prevDate)}
+                <div
+                  class="flex items-center gap-3 text-sm rounded-xl px-3 py-2"
+                  style="background: var(--app-surface-2)"
+                  animate:flip={{ duration: 250 }}
+                  transition:slide={{ duration: 200, easing: cubicOut }}
+                >
                   <span class="text-lg leading-none"
-                    >{flagEmoji(entry.isoCountryCode)}</span
+                    >{flagEmoji(gap.isoCountryCode)}</span
                   >
-                  <span
-                    class="text-xs w-24 flex-shrink-0"
-                    style="color: var(--app-muted)">{gapDate(entry.date)}</span
-                  >
-                  <select
-                    value={entry.isoCountryCode}
-                    onchange={(e) => changeCountry(entry, e.currentTarget.value)}
-                    class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
-                    style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-                  >
-                    {#each allCountries as c}
-                      <option value={c.code}>{c.name}</option>
-                    {/each}
-                  </select>
+                  <div class="flex-1 min-w-0">
+                    <p class="truncate" style="color: var(--app-fg)">
+                      {getCountryName(gap.isoCountryCode, $locale)}
+                    </p>
+                    <p class="text-xs" style="color: var(--app-muted)">
+                      {gapDate(gap.missing[0])}{#if gap.missing.length > 1}
+                        → {gapDate(gap.missing[gap.missing.length - 1])}{/if}
+                      · {gap.missing.length}d
+                    </p>
+                  </div>
                   <button
-                    onclick={() => removeFilled(entry)}
-                    aria-label={$t("sync.filled_remove")}
-                    class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
-                    style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
+                    onclick={() => fillGap(gap)}
+                    class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                    style="background: var(--app-accent); color: #ffffff"
+                    >{$t("sync.gaps_fill")}</button
                   >
-                    <svg
-                      class="w-4 h-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M3 6h18" />
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
-                    </svg>
-                  </button>
                 </div>
               {/each}
             </div>
-          </div>
-        </details>
 
-        {#if syncStore.mode === "manual"}
-          <!-- Server-less apply (4a): tap on this device, or QR for another one -->
-          <div
-            class="mt-4 pt-4 space-y-3 border-t"
-            style="border-color: var(--app-border)"
-          >
-            <p class="text-xs" style="color: var(--app-muted)">
-              {$t("sync.patches_local_hint")}
-            </p>
-            <div class="flex gap-2">
+            {#if entriesStore.gaps.length > 1}
               <button
-                onclick={applyPatchesInline}
-                class="flex-1 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                style="background: var(--app-accent); color: #ffffff"
-                >{$t("sync.patches_apply")}</button
-              >
-              <button
-                onclick={() => (showQr = !showQr)}
-                class="flex-1 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                onclick={fillAllGaps}
+                class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
                 style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-                >{showQr
-                  ? $t("sync.patches_qr_hide")
-                  : $t("sync.patches_qr_show")}</button
+                >{$t("sync.gaps_fill_all")}</button
               >
-            </div>
+            {/if}
+          </div>
+        {/if}
 
-            {#if showQr}
-              {#if qrError}
-                <p class="text-xs" style="color: var(--err-text)">
-                  {$t("sync.patches_qr_toobig")}
+        <!-- Repairs made (collapsible) -->
+        {#if entriesStore.filledEntries.length > 0}
+          <div class="space-y-3" transition:slide={{ duration: 240, easing: cubicOut }}>
+            {#if entriesStore.gaps.length > 0}
+              <div class="border-t" style="border-color: var(--app-border)"></div>
+            {/if}
+
+            <details>
+              <summary
+                class="flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden"
+              >
+                <p
+                  class="text-xs uppercase tracking-wider"
+                  style="color: var(--app-muted)"
+                >
+                  {$t("sync.filled_title")}
                 </p>
-              {:else}
-                <div class="flex flex-col items-center gap-2 py-1">
-                  <div class="rounded-xl bg-white p-2">
-                    <img src={qrDataUrl} alt="QR" class="w-44 h-44 block" />
-                  </div>
-                  <p
-                    class="text-[11px] text-center max-w-xs"
-                    style="color: var(--app-muted)"
-                  >
-                    {$t("sync.patches_qr_hint")}
-                  </p>
+                <span
+                  class="text-[11px] font-mono px-2 py-0.5 rounded-full"
+                  style="background: var(--app-surface-2); color: var(--app-muted)"
+                  >{entriesStore.filledEntries.length}</span
+                >
+                <span
+                  class="ml-auto text-xs"
+                  style="color: var(--app-muted); opacity: 0.6">▾</span
+                >
+              </summary>
+
+              <div class="pt-3 space-y-3">
+                <p class="text-xs" style="color: var(--app-muted)">
+                  {$t("sync.filled_desc")}
+                </p>
+                <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {#each entriesStore.filledEntries as entry (entry.isoCountryCode + "_" + entry.date)}
+                    <div
+                      class="flex items-center gap-2 text-sm"
+                      animate:flip={{ duration: 250 }}
+                      transition:slide={{ duration: 200, easing: cubicOut }}
+                    >
+                      <span class="text-lg leading-none"
+                        >{flagEmoji(entry.isoCountryCode)}</span
+                      >
+                      <span
+                        class="text-xs w-24 flex-shrink-0"
+                        style="color: var(--app-muted)">{gapDate(entry.date)}</span
+                      >
+                      <select
+                        value={entry.isoCountryCode}
+                        onchange={(e) => changeCountry(entry, e.currentTarget.value)}
+                        class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
+                        style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+                      >
+                        {#each allCountries as c}
+                          <option value={c.code}>{c.name}</option>
+                        {/each}
+                      </select>
+                      <button
+                        onclick={() => removeFilled(entry)}
+                        aria-label={$t("sync.filled_remove")}
+                        class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
+                        style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
+                      >
+                        <svg
+                          class="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
+                        </svg>
+                      </button>
+                    </div>
+                  {/each}
                 </div>
-              {/if}
+              </div>
+            </details>
+
+            {#if syncStore.mode === "manual"}
+              <!-- Server-less apply (4a): tap on this device, or QR for another one -->
+              <div
+                class="pt-3 space-y-3 border-t"
+                style="border-color: var(--app-border)"
+              >
+                <p class="text-xs" style="color: var(--app-muted)">
+                  {$t("sync.patches_local_hint")}
+                </p>
+                <div class="flex gap-2">
+                  <button
+                    onclick={applyPatchesInline}
+                    class="flex-1 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                    style="background: var(--app-accent); color: #ffffff"
+                    >{$t("sync.patches_apply")}</button
+                  >
+                  <button
+                    onclick={() => (showQr = !showQr)}
+                    class="flex-1 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                    style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+                    >{showQr
+                      ? $t("sync.patches_qr_hide")
+                      : $t("sync.patches_qr_show")}</button
+                  >
+                </div>
+
+                {#if showQr}
+                  {#if qrError}
+                    <p
+                      class="text-xs"
+                      style="color: var(--err-text)"
+                      transition:slide={{ duration: 200 }}
+                    >
+                      {$t("sync.patches_qr_toobig")}
+                    </p>
+                  {:else}
+                    <div
+                      class="flex flex-col items-center gap-2 py-1"
+                      transition:slide={{ duration: 200 }}
+                    >
+                      <div class="rounded-xl bg-white p-2">
+                        <img src={qrDataUrl} alt="QR" class="w-44 h-44 block" />
+                      </div>
+                      <p
+                        class="text-[11px] text-center max-w-xs"
+                        style="color: var(--app-muted)"
+                      >
+                        {$t("sync.patches_qr_hint")}
+                      </p>
+                    </div>
+                  {/if}
+                {/if}
+              </div>
             {/if}
           </div>
         {/if}

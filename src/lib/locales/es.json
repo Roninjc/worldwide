@@ -126,5 +126,6 @@
   "sync.patches_qr_show": "Mostrar QR",
   "sync.patches_qr_hide": "Ocultar QR",
   "sync.patches_qr_hint": "Escanéalo con la cámara de tu iPhone y ábrelo en Scriptable para aplicarlo en ese dispositivo.",
-  "sync.patches_qr_toobig": "Demasiadas reparaciones para un QR. Usa el botón de arriba en tu iPhone, o activa la sincronización automática."
+  "sync.patches_qr_toobig": "Demasiadas reparaciones para un QR. Usa el botón de arriba en tu iPhone, o activa la sincronización automática.",
+  "sync.repairs_title": "Reparaciones de datos"
 }
