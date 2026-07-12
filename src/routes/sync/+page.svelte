@@ -30,7 +30,14 @@
   async function syncPatches() {
     if (syncStore.mode === "relay" && syncStore.relay) {
       await pushPatchesToRelay(entriesStore.filledEntries);
+      patchesDirty = true;
     }
+  }
+
+  // Force Scriptable to reconcile the repairs into the JSON now (relay mode).
+  function applyOnDevice() {
+    patchesDirty = false;
+    openScriptableConfig("apply");
   }
 
   async function fillGap(gap: Gap) {
@@ -71,6 +78,8 @@
   let syncing = $state(false);
   let copied = $state(false);
   let relayMsg = $state<{ kind: "ok" | "err"; text: string } | null>(null);
+  // True when repairs changed but haven't been applied on the iPhone yet.
+  let patchesDirty = $state(false);
 
   function setMode(mode: SyncMode) {
     syncStore.mode = mode;
@@ -489,19 +498,6 @@
             </div>
           {/each}
         </div>
-
-        {#if syncStore.mode === "relay" && syncStore.relay}
-          <!-- Force Scriptable to merge the repairs back into the JSON now -->
-          <button
-            onclick={() => openScriptableConfig("apply")}
-            class="w-full py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-            style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-            >{$t("sync.patches_apply")}</button
-          >
-          <p class="text-[11px]" style="color: var(--app-muted); opacity: 0.7">
-            {$t("sync.patches_apply_hint")}
-          </p>
-        {/if}
       </div>
     {/if}
 
@@ -665,6 +661,26 @@
               >{$t("sync.relay_reconfigure")}</button
             >
           </div>
+
+          <!-- Apply repairs to the iPhone JSON. Always available here (even at
+               zero repairs) so a "delete all" can be committed too. -->
+          <button
+            onclick={applyOnDevice}
+            class="w-full py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+            style="background: {patchesDirty
+              ? 'var(--app-accent)'
+              : 'var(--app-surface-2)'}; color: {patchesDirty
+              ? '#ffffff'
+              : 'var(--app-fg)'}; border: 1px solid {patchesDirty
+              ? 'var(--app-accent)'
+              : 'var(--app-border)'}"
+            >{$t("sync.patches_apply")}</button
+          >
+          <p class="text-[11px]" style="color: var(--app-muted); opacity: 0.7">
+            {patchesDirty
+              ? $t("sync.patches_unsaved")
+              : $t("sync.patches_apply_hint")}
+          </p>
 
           <button
             onclick={deactivateRelay}
