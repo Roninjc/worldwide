@@ -12,6 +12,7 @@
   } from "$lib/stats";
   import { computeStays } from "$lib/stays";
   import { flagEmoji } from "$lib/flag";
+  import WrappedTabs from "$lib/components/WrappedTabs.svelte";
   import type { CountryStat } from "$lib/types";
 
   const year = $derived(Number($page.params.year));
@@ -86,6 +87,8 @@
     <NoData />
   {:else}
     <div class="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <WrappedTabs mode="year" />
+
       <!-- Year navigation -->
     <div class="flex items-center justify-between">
       <button
