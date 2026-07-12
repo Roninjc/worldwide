@@ -151,19 +151,19 @@
       {@render children()}
     </main>
 
-    <!-- Floating notification stack (top of viewport) -->
-    <div
-      class="fixed inset-x-0 top-0 z-40 flex flex-col gap-2 px-3 pointer-events-none"
-      style="padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem)"
-    >
-      <InstallBanner />
-      {#if $page.url.pathname === "/"}
+    <!-- Floating notification stack (top of viewport). Hidden on /sync, where
+         the page itself surfaces import status, staleness and repairs, and on
+         /wrapped, whose immersive recap shouldn't be covered by toasts. -->
+    {#if $page.url.pathname !== "/sync" && !$page.url.pathname.startsWith("/wrapped")}
+      <div
+        class="fixed inset-x-0 top-0 z-40 flex flex-col gap-2 px-3 pointer-events-none"
+        style="padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem)"
+      >
+        <InstallBanner />
         <StaleBanner />
-      {/if}
-      {#if $page.url.pathname !== "/sync"}
         <GapsBanner />
-      {/if}
-    </div>
+      </div>
+    {/if}
 
     <!-- Bottom bar: sync ← [nav pill] → theme -->
     <div
