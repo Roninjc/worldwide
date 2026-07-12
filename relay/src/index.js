@@ -1,7 +1,7 @@
 // Worldwide sync relay — a zero-knowledge blob store.
 //
 // It only ever stores/serves an opaque, client-side-encrypted blob per user id.
-// The relay CANNOT read locations: the payload is AES/secretbox ciphertext whose
+// The relay CANNOT read locations: the payload is secretbox ciphertext whose
 // key is derived from a passphrase that never leaves the user's devices.
 //
 //   PUT    /{id}   body = base64 ciphertext → stores it       (Scriptable publishes)

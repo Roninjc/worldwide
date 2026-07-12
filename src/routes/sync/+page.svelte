@@ -530,7 +530,6 @@
         </h2>
       </div>
 
-      <!-- Segmented control -->
       <div
         class="flex rounded-lg overflow-hidden text-sm"
         style="border: 1px solid var(--app-border)"
@@ -582,7 +581,6 @@
             >{$t("sync.relay_activate")}</button
           >
 
-          <!-- Restore from a previously saved backup config -->
           <details class="pt-1">
             <summary
               class="text-xs cursor-pointer"
@@ -748,7 +746,6 @@
           </h2>
         </div>
 
-        <!-- Gaps to fill -->
         {#if hasGaps}
           <div class="space-y-3" transition:slide={{ duration: 240, easing: cubicOut }}>
             <div class="flex items-center gap-2">
@@ -871,7 +868,6 @@
               </div>
             {/if}
 
-            <!-- Repaired days (collapsible, animated) -->
             {#if hasFilled}
               <div class="space-y-3">
                 <button

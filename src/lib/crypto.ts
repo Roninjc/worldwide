@@ -2,7 +2,7 @@
 //
 // Uses tweetnacl `secretbox` (XSalsa20-Poly1305) with a key derived from a
 // passphrase via scrypt. Everything here is pure JS so the SAME format can be
-// produced by Scriptable on the iPhone (Phase 4).
+// produced by Scriptable on the iPhone (see CountriesAYearSync.js).
 //
 // Blob layout (then base64-encoded):  salt[16] ‖ nonce[24] ‖ secretbox
 //
