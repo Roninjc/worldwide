@@ -20,6 +20,14 @@
   // ── Gaps / manual fills ──────────────────────────────────────────────
   const allCountries = $derived(getAllCountryNames($locale));
 
+  const hasGaps = $derived(entriesStore.gaps.length > 0);
+  const hasFilled = $derived(entriesStore.filledEntries.length > 0);
+  // Manual mode has unapplied changes (kept visible even at zero repairs so a
+  // "delete all" can still be committed to the device).
+  const manualPending = $derived(
+    syncStore.mode === "manual" && syncStore.patchesPending,
+  );
+
   function gapDate(ms: number) {
     return new Date(ms).toLocaleDateString($locale ?? "en", {
       day: "numeric",
@@ -28,13 +36,18 @@
     });
   }
 
-  // After any change to the filled set, publish it to the relay's patches
-  // mailbox so Scriptable can merge it back into the yearly JSON (relay mode only).
-  async function syncPatches() {
+  // Whether the repair list is expanded. Collapsed by default, but auto-opens
+  // right after a fill so the user can review before applying.
+  let repairsOpen = $state(false);
+
+  // Called after any repair change (fill / undo / edit). Marks the changes as
+  // pending (so the "apply" controls stay visible until committed — even at
+  // zero repairs), and in relay mode publishes the set to the patches mailbox.
+  async function markRepairChange() {
+    syncStore.patchesPending = true;
     if (syncStore.mode === "relay" && syncStore.relay) {
       patchesBusy = true;
       await pushPatchesToRelay(entriesStore.filledEntries);
-      patchesDirty = true;
       // Give Cloudflare KV a moment to propagate before "apply" is allowed,
       // otherwise Scriptable may read a stale blob (transient decrypt error).
       await new Promise((r) => setTimeout(r, 1500));
@@ -42,25 +55,27 @@
     }
   }
 
-  // Force Scriptable to reconcile the repairs into the JSON now (relay mode).
+  // Relay mode: force Scriptable to pull + reconcile the patches now.
   function applyOnDevice() {
-    patchesDirty = false;
+    syncStore.patchesPending = false;
     openScriptableConfig("apply");
   }
 
   async function fillGap(gap: Gap) {
     await entriesStore.fillGap(gap);
-    await syncPatches();
+    repairsOpen = true;
+    await markRepairChange();
   }
 
   async function fillAllGaps() {
     await entriesStore.fillAllGaps();
-    await syncPatches();
+    repairsOpen = true;
+    await markRepairChange();
   }
 
   async function removeFilled(entry: LocationEntry) {
     await entriesStore.removeEntry(entry);
-    await syncPatches();
+    await markRepairChange();
   }
 
   async function changeCountry(entry: LocationEntry, code: string) {
@@ -70,7 +85,7 @@
       code,
       getCountryName(code, $locale),
     );
-    await syncPatches();
+    await markRepairChange();
   }
 
   let isDragging = $state(false);
@@ -86,8 +101,6 @@
   let syncing = $state(false);
   let copied = $state(false);
   let relayMsg = $state<{ kind: "ok" | "err"; text: string } | null>(null);
-  // True when repairs changed but haven't been applied on the iPhone yet.
-  let patchesDirty = $state(false);
   // True while pushing patches + waiting for KV to settle (blocks "apply").
   let patchesBusy = $state(false);
   // Confirmation gate before the destructive relay→manual switch.
@@ -138,6 +151,8 @@
   }
 
   function applyPatchesInline() {
+    // Optimistic: assume the deep link applies on this device.
+    syncStore.patchesPending = false;
     window.location.href = patchDeepLink();
   }
 
@@ -671,11 +686,13 @@
             onclick={applyOnDevice}
             disabled={patchesBusy}
             class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-60"
-            style="background: {patchesDirty && !patchesBusy
+            style="background: {syncStore.patchesPending && !patchesBusy
               ? 'var(--app-accent)'
-              : 'var(--app-surface-2)'}; color: {patchesDirty && !patchesBusy
+              : 'var(--app-surface-2)'}; color: {syncStore.patchesPending &&
+            !patchesBusy
               ? '#ffffff'
-              : 'var(--app-fg)'}; border: 1px solid {patchesDirty && !patchesBusy
+              : 'var(--app-fg)'}; border: 1px solid {syncStore.patchesPending &&
+            !patchesBusy
               ? 'var(--app-accent)'
               : 'var(--app-border)'}"
             >{patchesBusy
@@ -685,7 +702,7 @@
           <p class="text-[11px]" style="color: var(--app-muted); opacity: 0.7">
             {patchesBusy
               ? $t("sync.patches_preparing_hint")
-              : patchesDirty
+              : syncStore.patchesPending
                 ? $t("sync.patches_unsaved")
                 : $t("sync.patches_apply_hint")}
           </p>
@@ -705,7 +722,7 @@
     </section>
 
     <!-- ── Data repairs: gaps + manual fills, unified ─────────────────── -->
-    {#if entriesStore.gaps.length > 0 || entriesStore.filledEntries.length > 0}
+    {#if hasGaps || hasFilled || manualPending}
       <section
         class="rounded-2xl p-5 space-y-5"
         style="background: var(--app-surface)"
@@ -732,7 +749,7 @@
         </div>
 
         <!-- Gaps to fill -->
-        {#if entriesStore.gaps.length > 0}
+        {#if hasGaps}
           <div class="space-y-3" transition:slide={{ duration: 240, easing: cubicOut }}>
             <div class="flex items-center gap-2">
               <p
@@ -793,96 +810,20 @@
           </div>
         {/if}
 
-        <!-- Repairs made (collapsible) -->
-        {#if entriesStore.filledEntries.length > 0}
-          <div class="space-y-3" transition:slide={{ duration: 240, easing: cubicOut }}>
-            {#if entriesStore.gaps.length > 0}
+        <!-- Repairs area: pending changes (apply controls) above, list below -->
+        {#if hasFilled || manualPending}
+          <div class="space-y-4" transition:slide={{ duration: 240, easing: cubicOut }}>
+            {#if hasGaps}
               <div class="border-t" style="border-color: var(--app-border)"></div>
             {/if}
 
-            <details>
-              <summary
-                class="flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden"
-              >
-                <p
-                  class="text-xs uppercase tracking-wider"
-                  style="color: var(--app-muted)"
-                >
-                  {$t("sync.filled_title")}
-                </p>
-                <span
-                  class="text-[11px] font-mono px-2 py-0.5 rounded-full"
-                  style="background: var(--app-surface-2); color: var(--app-muted)"
-                  >{entriesStore.filledEntries.length}</span
-                >
-                <span
-                  class="ml-auto text-xs"
-                  style="color: var(--app-muted); opacity: 0.6">▾</span
-                >
-              </summary>
-
-              <div class="pt-3 space-y-3">
-                <p class="text-xs" style="color: var(--app-muted)">
-                  {$t("sync.filled_desc")}
-                </p>
-                <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {#each entriesStore.filledEntries as entry (entry.isoCountryCode + "_" + entry.date)}
-                    <div
-                      class="flex items-center gap-2 text-sm"
-                      animate:flip={{ duration: 250 }}
-                      transition:slide={{ duration: 200, easing: cubicOut }}
-                    >
-                      <span class="text-lg leading-none"
-                        >{flagEmoji(entry.isoCountryCode)}</span
-                      >
-                      <span
-                        class="text-xs w-24 flex-shrink-0"
-                        style="color: var(--app-muted)">{gapDate(entry.date)}</span
-                      >
-                      <select
-                        value={entry.isoCountryCode}
-                        onchange={(e) => changeCountry(entry, e.currentTarget.value)}
-                        class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
-                        style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-                      >
-                        {#each allCountries as c}
-                          <option value={c.code}>{c.name}</option>
-                        {/each}
-                      </select>
-                      <button
-                        onclick={() => removeFilled(entry)}
-                        aria-label={$t("sync.filled_remove")}
-                        class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
-                        style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
-                      >
-                        <svg
-                          class="w-4 h-4"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
-                        </svg>
-                      </button>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-            </details>
-
+            <!-- Server-less apply (4a): tap on this device, or QR for another -->
             {#if syncStore.mode === "manual"}
-              <!-- Server-less apply (4a): tap on this device, or QR for another one -->
-              <div
-                class="pt-3 space-y-3 border-t"
-                style="border-color: var(--app-border)"
-              >
+              <div class="space-y-3">
                 <p class="text-xs" style="color: var(--app-muted)">
-                  {$t("sync.patches_local_hint")}
+                  {hasFilled
+                    ? $t("sync.patches_local_hint")
+                    : $t("sync.patches_clear_hint")}
                 </p>
                 <div class="flex gap-2">
                   <button
@@ -906,14 +847,14 @@
                     <p
                       class="text-xs"
                       style="color: var(--err-text)"
-                      transition:slide={{ duration: 200 }}
+                      transition:slide={{ duration: 360, easing: cubicOut }}
                     >
                       {$t("sync.patches_qr_toobig")}
                     </p>
                   {:else}
                     <div
                       class="flex flex-col items-center gap-2 py-1"
-                      transition:slide={{ duration: 200 }}
+                      transition:slide={{ duration: 360, easing: cubicOut }}
                     >
                       <div class="rounded-xl bg-white p-2">
                         <img src={qrDataUrl} alt="QR" class="w-44 h-44 block" />
@@ -926,6 +867,95 @@
                       </p>
                     </div>
                   {/if}
+                {/if}
+              </div>
+            {/if}
+
+            <!-- Repaired days (collapsible, animated) -->
+            {#if hasFilled}
+              <div class="space-y-3">
+                <button
+                  onclick={() => (repairsOpen = !repairsOpen)}
+                  class="w-full flex items-center gap-2 transition-opacity hover:opacity-80"
+                  aria-expanded={repairsOpen}
+                >
+                  <p
+                    class="text-xs uppercase tracking-wider"
+                    style="color: var(--app-muted)"
+                  >
+                    {$t("sync.filled_title")}
+                  </p>
+                  <span
+                    class="text-[11px] font-mono px-2 py-0.5 rounded-full"
+                    style="background: var(--app-surface-2); color: var(--app-muted)"
+                    >{entriesStore.filledEntries.length}</span
+                  >
+                  <span
+                    class="ml-auto text-xs"
+                    style="color: var(--app-muted); opacity: 0.6; transition: transform 0.25s ease; transform: rotate({repairsOpen
+                      ? 180
+                      : 0}deg)">▾</span
+                  >
+                </button>
+
+                {#if repairsOpen}
+                  <div
+                    class="space-y-3"
+                    transition:slide={{ duration: 260, easing: cubicOut }}
+                  >
+                    <p class="text-xs" style="color: var(--app-muted)">
+                      {$t("sync.filled_desc")}
+                    </p>
+                    <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {#each entriesStore.filledEntries as entry (entry.isoCountryCode + "_" + entry.date)}
+                        <div
+                          class="flex items-center gap-2 text-sm"
+                          animate:flip={{ duration: 250 }}
+                          transition:slide={{ duration: 200, easing: cubicOut }}
+                        >
+                          <span class="text-lg leading-none"
+                            >{flagEmoji(entry.isoCountryCode)}</span
+                          >
+                          <span
+                            class="text-xs w-24 flex-shrink-0"
+                            style="color: var(--app-muted)"
+                            >{gapDate(entry.date)}</span
+                          >
+                          <select
+                            value={entry.isoCountryCode}
+                            onchange={(e) =>
+                              changeCountry(entry, e.currentTarget.value)}
+                            class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
+                            style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+                          >
+                            {#each allCountries as c}
+                              <option value={c.code}>{c.name}</option>
+                            {/each}
+                          </select>
+                          <button
+                            onclick={() => removeFilled(entry)}
+                            aria-label={$t("sync.filled_remove")}
+                            class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
+                            style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
+                          >
+                            <svg
+                              class="w-4 h-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <path d="M3 6h18" />
+                              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
+                            </svg>
+                          </button>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
                 {/if}
               </div>
             {/if}

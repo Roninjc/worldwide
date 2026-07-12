@@ -127,5 +127,6 @@
   "sync.patches_qr_hide": "Masquer le QR",
   "sync.patches_qr_hint": "Scannez-le avec l’appareil photo de votre iPhone, puis ouvrez-le dans Scriptable pour l’appliquer sur cet appareil.",
   "sync.patches_qr_toobig": "Trop de corrections pour un QR. Utilisez le bouton ci-dessus sur votre iPhone, ou activez la synchronisation automatique.",
-  "sync.repairs_title": "Réparations de données"
+  "sync.repairs_title": "Réparations de données",
+  "sync.patches_clear_hint": "Vous avez supprimé toutes les corrections. Appliquez pour les retirer aussi de votre iPhone."
 }

@@ -127,5 +127,6 @@
   "sync.patches_qr_hide": "Skjul QR",
   "sync.patches_qr_hint": "Skann den med iPhone-kameraet og åpne i Scriptable for å bruke den på den enheten.",
   "sync.patches_qr_toobig": "For mange reparasjoner for en QR-kode. Bruk knappen over på iPhone-en din, eller aktiver automatisk synkronisering.",
-  "sync.repairs_title": "Datareparasjoner"
+  "sync.repairs_title": "Datareparasjoner",
+  "sync.patches_clear_hint": "Du fjernet alle reparasjoner. Bruk for å fjerne dem fra iPhone-en også."
 }

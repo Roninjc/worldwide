@@ -22,13 +22,16 @@ interface PersistedSync {
 	lastImport: number | null;
 	lastSync: number | null;
 	relay: RelayConfig | null;
+	/** There are gap repairs that haven't been applied to the device JSON yet. */
+	patchesPending: boolean;
 }
 
 const DEFAULTS: PersistedSync = {
 	mode: 'manual',
 	lastImport: null,
 	lastSync: null,
-	relay: null
+	relay: null,
+	patchesPending: false
 };
 
 function loadPersisted(): PersistedSync {
@@ -48,10 +51,14 @@ function createSyncStore() {
 	let lastImport = $state<number | null>(initial.lastImport);
 	let lastSync = $state<number | null>(initial.lastSync);
 	let relay = $state<RelayConfig | null>(initial.relay);
+	let patchesPending = $state<boolean>(initial.patchesPending);
 
 	function persist() {
 		if (typeof localStorage === 'undefined') return;
-		localStorage.setItem(STORAGE_KEY, JSON.stringify({ mode, lastImport, lastSync, relay }));
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({ mode, lastImport, lastSync, relay, patchesPending })
+		);
 	}
 
 	return {
@@ -73,6 +80,13 @@ function createSyncStore() {
 		},
 		setRelay(config: RelayConfig | null) {
 			relay = config;
+			persist();
+		},
+		get patchesPending() {
+			return patchesPending;
+		},
+		set patchesPending(value: boolean) {
+			patchesPending = value;
 			persist();
 		},
 		/** Call after any manual import completes */

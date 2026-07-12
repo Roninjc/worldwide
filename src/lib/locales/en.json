@@ -127,5 +127,6 @@
   "sync.patches_qr_hide": "Hide QR",
   "sync.patches_qr_hint": "Scan it with your iPhone camera, then open in Scriptable to apply on that device.",
   "sync.patches_qr_toobig": "Too many repairs to fit in a QR. Use the button above on your iPhone, or enable automatic sync.",
-  "sync.repairs_title": "Data repairs"
+  "sync.repairs_title": "Data repairs",
+  "sync.patches_clear_hint": "You removed all repairs. Apply to remove them from your iPhone too."
 }
