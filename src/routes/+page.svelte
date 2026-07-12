@@ -202,6 +202,15 @@
       scrollEl.scrollLeft = dragScroll0 - dx;
     }
   }
+  function onTouchEnd(e: TouchEvent) {
+    if (!scrollEl) return;
+    if (e.touches.length === 2) {
+      pinchDist0 = getPinchDist(e.touches);
+    } else if (e.touches.length === 1) {
+      dragX0 = e.touches[0].clientX;
+      dragScroll0 = scrollEl.scrollLeft;
+    }
+  }
 
   // ── Timeline tooltip ───────────────────────────────────────────────────
   let timelineTooltip = $state<{
@@ -701,6 +710,8 @@
         onwheel={onWheel}
         ontouchstart={onTouchStart}
         ontouchmove={onTouchMove}
+        ontouchend={onTouchEnd}
+        ontouchcancel={onTouchEnd}
         onmouseleave={() => {
           timelineTooltip = null;
         }}
