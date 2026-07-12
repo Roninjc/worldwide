@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { browser } from "$app/environment";
   import { entriesStore } from "$lib/entriesStore.svelte";
   import { syncStore, type SyncMode } from "$lib/syncStore.svelte";
   import { relativeTime } from "$lib/time";
@@ -29,8 +28,13 @@
   // mailbox so Scriptable can merge it back into the yearly JSON (relay mode only).
   async function syncPatches() {
     if (syncStore.mode === "relay" && syncStore.relay) {
+      patchesBusy = true;
       await pushPatchesToRelay(entriesStore.filledEntries);
       patchesDirty = true;
+      // Give Cloudflare KV a moment to propagate before "apply" is allowed,
+      // otherwise Scriptable may read a stale blob (transient decrypt error).
+      await new Promise((r) => setTimeout(r, 1500));
+      patchesBusy = false;
     }
   }
 
@@ -80,10 +84,25 @@
   let relayMsg = $state<{ kind: "ok" | "err"; text: string } | null>(null);
   // True when repairs changed but haven't been applied on the iPhone yet.
   let patchesDirty = $state(false);
+  // True while pushing patches + waiting for KV to settle (blocks "apply").
+  let patchesBusy = $state(false);
+  // Confirmation gate before the destructive relay→manual switch.
+  let confirmDisable = $state(false);
 
-  function setMode(mode: SyncMode) {
+  function requestMode(mode: SyncMode) {
+    if (mode === syncStore.mode) return;
+    // Switching relay → manual tears down the relay: confirm first.
+    if (mode === "manual" && syncStore.relay) {
+      confirmDisable = true;
+      return;
+    }
     syncStore.mode = mode;
     relayMsg = null;
+  }
+
+  async function confirmDisableRelay() {
+    confirmDisable = false;
+    await deactivateRelay();
   }
 
   // Same-device handoff: opening this URL switches to Scriptable, which writes
@@ -190,10 +209,6 @@
     }
   }
 
-  const isInstalled = $derived(
-    browser && window.matchMedia("(display-mode: standalone)").matches,
-  );
-
   onMount(async () => {
     if ($page.url.searchParams.get("shared") === "1") {
       const files = await consumePendingFiles();
@@ -247,23 +262,19 @@
       </p>
     </div>
 
-    {#if !isInstalled}
-      <div
-        class="rounded-xl p-4 space-y-2"
-        style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
-      >
-        <p class="font-medium text-sm" style="color: var(--ok-title)">
-          {$t("sync.pwa_title")}
-        </p>
-        <p class="text-xs" style="color: var(--ok-body)">
-          {$t("sync.pwa_body")}
-        </p>
-      </div>
-    {/if}
-
     {#if importing}
       <div class="text-center py-8" style="color: var(--app-muted)">
-        <p class="text-2xl mb-2">⏳</p>
+        <svg
+          class="w-6 h-6 mx-auto mb-2 animate-spin"
+          style="color: var(--app-muted)"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        >
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+        </svg>
         {$t("sync.importing")}
       </div>
     {:else}
@@ -288,15 +299,28 @@
         onkeydown={(e) =>
           e.key === "Enter" && document.getElementById("file-input")?.click()}
       >
-        <p class="text-4xl mb-3">📂</p>
+        <svg
+          class="w-8 h-8 mx-auto mb-3"
+          style="color: {isDragging ? 'var(--app-accent)' : 'var(--app-muted)'}"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 3v12" />
+          <path d="m8 11 4 4 4-4" />
+          <path d="M20 16.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.5" />
+        </svg>
         <p class="font-medium" style="color: var(--app-fg)">
-          {$t("sync.drag_files")}
-        </p>
-        <p class="text-sm mt-1" style="color: var(--app-muted)">
           {$t("sync.tap_to_select")}
         </p>
+        <p class="text-sm mt-1" style="color: var(--app-muted)">
+          {$t("sync.drag_files")}
+        </p>
         <p class="text-xs mt-3" style="color: var(--app-muted); opacity: 0.5">
-          locationsStore2023.json, locationsStore2024.json…
+          locationsStore 2023.json, locationsStore 2024.json…
         </p>
       </div>
 
@@ -340,178 +364,110 @@
     {/if}
 
     {#if entriesStore.totalDays > 0}
-      <div
-        class="rounded-xl p-4 space-y-3"
-        style="border: 1px solid var(--app-border)"
+      <section
+        class="rounded-2xl p-5 space-y-4"
+        style="background: var(--app-surface)"
       >
-        <p
-          class="text-xs uppercase tracking-wider"
-          style="color: var(--app-muted)"
-        >
-          {$t("sync.stored_data")}
-        </p>
-        <div class="flex justify-between text-sm">
-          <span style="color: var(--app-fg)">{$t("sync.total_entries")}</span>
-          <span class="font-mono" style="color: var(--app-fg)"
-            >{entriesStore.totalDays}</span
+        <div class="flex items-center gap-2.5">
+          <svg
+            class="w-[18px] h-[18px] flex-shrink-0"
+            style="color: var(--app-muted)"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+            <path d="M3 12a9 3 0 0 0 18 0" />
+          </svg>
+          <h2 class="text-sm font-semibold" style="color: var(--app-fg)">
+            {$t("sync.stored_data")}
+          </h2>
         </div>
-        <div class="flex justify-between text-sm">
-          <span style="color: var(--app-fg)"
-            >{$t("sync.distinct_countries")}</span
+
+        <div class="grid grid-cols-2 gap-3">
+          <div
+            class="rounded-xl px-3 py-2.5"
+            style="background: var(--app-surface-2)"
           >
-          <span class="font-mono" style="color: var(--app-fg)"
-            >{entriesStore.totalCountries}</span
+            <p class="text-xl font-bold tabular-nums" style="color: var(--app-fg)">
+              {entriesStore.entries.length}
+            </p>
+            <p class="text-[11px] mt-0.5" style="color: var(--app-muted)">
+              {$t("sync.total_entries")}
+            </p>
+          </div>
+          <div
+            class="rounded-xl px-3 py-2.5"
+            style="background: var(--app-surface-2)"
           >
+            <p class="text-xl font-bold tabular-nums" style="color: var(--app-fg)">
+              {entriesStore.totalDays}
+            </p>
+            <p class="text-[11px] mt-0.5" style="color: var(--app-muted)">
+              {$t("sync.unique_days")}
+            </p>
+          </div>
         </div>
-        <div class="flex justify-between text-sm">
-          <span style="color: var(--app-fg)">{$t("sync.years")}</span>
-          <span class="font-mono" style="color: var(--app-fg)"
-            >{entriesStore.years.join(", ")}</span
-          >
-        </div>
-        {#if syncStore.lastImport}
-          <div class="flex justify-between text-sm">
-            <span style="color: var(--app-fg)">{$t("sync.last_import")}</span>
+
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
             <span style="color: var(--app-muted)"
-              >{relativeTime(syncStore.lastImport, $locale)}</span
+              >{$t("sync.distinct_countries")}</span
+            >
+            <span class="font-mono" style="color: var(--app-fg)"
+              >{entriesStore.totalCountries}</span
             >
           </div>
-        {/if}
-      </div>
-    {/if}
-
-    <!-- ── Gaps in the data ───────────────────────────────────────────── -->
-    {#if entriesStore.gaps.length > 0}
-      <div
-        class="rounded-xl p-4 space-y-3"
-        style="border: 1px solid var(--app-border)"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <p
-            class="text-xs uppercase tracking-wider"
-            style="color: var(--app-muted)"
-          >
-            {$t("sync.gaps_title")}
-          </p>
-          <span class="text-xs font-mono" style="color: var(--app-accent)"
-            >{entriesStore.gaps.length}</span
-          >
-        </div>
-        <p class="text-xs" style="color: var(--app-muted)">
-          {$t("sync.gaps_desc")}
-        </p>
-
-        <div class="space-y-2">
-          {#each entriesStore.gaps as gap (gap.isoCountryCode + "_" + gap.prevDate)}
-            <div class="flex items-center gap-3 text-sm">
-              <span class="text-lg leading-none"
-                >{flagEmoji(gap.isoCountryCode)}</span
+          <div class="flex justify-between gap-4">
+            <span class="flex-shrink-0" style="color: var(--app-muted)"
+              >{$t("sync.years")}</span
+            >
+            <span class="font-mono text-right" style="color: var(--app-fg)"
+              >{entriesStore.years.join(", ")}</span
+            >
+          </div>
+          {#if syncStore.lastImport}
+            <div class="flex justify-between">
+              <span style="color: var(--app-muted)">{$t("sync.last_import")}</span
               >
-              <div class="flex-1 min-w-0">
-                <p class="truncate" style="color: var(--app-fg)">
-                  {getCountryName(gap.isoCountryCode, $locale)}
-                </p>
-                <p class="text-xs" style="color: var(--app-muted)">
-                  {gapDate(gap.missing[0])}{#if gap.missing.length > 1}
-                    → {gapDate(gap.missing[gap.missing.length - 1])}{/if}
-                  · {gap.missing.length}d
-                </p>
-              </div>
-              <button
-                onclick={() => fillGap(gap)}
-                class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                style="background: var(--app-accent); color: #ffffff"
-                >{$t("sync.gaps_fill")}</button
+              <span style="color: var(--app-muted)"
+                >{relativeTime(syncStore.lastImport, $locale)}</span
               >
             </div>
-          {/each}
+          {/if}
         </div>
-
-        {#if entriesStore.gaps.length > 1}
-          <button
-            onclick={fillAllGaps}
-            class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-            style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-            >{$t("sync.gaps_fill_all")}</button
-          >
-        {/if}
-      </div>
-    {/if}
-
-    <!-- ── Manually filled days ───────────────────────────────────────── -->
-    {#if entriesStore.filledEntries.length > 0}
-      <div
-        class="rounded-xl p-4 space-y-3"
-        style="border: 1px solid var(--app-border)"
-      >
-        <p
-          class="text-xs uppercase tracking-wider"
-          style="color: var(--app-muted)"
-        >
-          {$t("sync.filled_title")}
-        </p>
-        <p class="text-xs" style="color: var(--app-muted)">
-          {$t("sync.filled_desc")}
-        </p>
-
-        <div class="space-y-2">
-          {#each entriesStore.filledEntries as entry (entry.isoCountryCode + "_" + entry.date)}
-            <div class="flex items-center gap-2 text-sm">
-              <span class="text-lg leading-none"
-                >{flagEmoji(entry.isoCountryCode)}</span
-              >
-              <span
-                class="text-xs w-24 flex-shrink-0"
-                style="color: var(--app-muted)">{gapDate(entry.date)}</span
-              >
-              <select
-                value={entry.isoCountryCode}
-                onchange={(e) => changeCountry(entry, e.currentTarget.value)}
-                class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
-                style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
-              >
-                {#each allCountries as c}
-                  <option value={c.code}>{c.name}</option>
-                {/each}
-              </select>
-              <button
-                onclick={() => removeFilled(entry)}
-                aria-label={$t("sync.filled_remove")}
-                class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
-                style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
-              >
-                <svg
-                  class="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
-                </svg>
-              </button>
-            </div>
-          {/each}
-        </div>
-      </div>
+      </section>
     {/if}
 
     <!-- ── Sync mode ──────────────────────────────────────────────────── -->
-    <div
-      class="rounded-xl p-4 space-y-4"
-      style="border: 1px solid var(--app-border)"
+    <section
+      class="rounded-2xl p-5 space-y-4"
+      style="background: var(--app-surface)"
     >
-      <p
-        class="text-xs uppercase tracking-wider"
-        style="color: var(--app-muted)"
-      >
-        {$t("sync.mode_title")}
-      </p>
+      <div class="flex items-center gap-2.5">
+        <svg
+          class="w-[18px] h-[18px] flex-shrink-0"
+          style="color: var(--app-muted)"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+          <path d="M8 16H3v5" />
+        </svg>
+        <h2 class="text-sm font-semibold" style="color: var(--app-fg)">
+          {$t("sync.mode_title")}
+        </h2>
+      </div>
 
       <!-- Segmented control -->
       <div
@@ -527,7 +483,7 @@
               : 'var(--app-surface-2)'}; color: {active
               ? '#ffffff'
               : 'var(--app-muted)'}"
-            onclick={() => setMode(value as SyncMode)}>{label}</button
+            onclick={() => requestMode(value as SyncMode)}>{label}</button
           >
         {/each}
       </div>
@@ -663,30 +619,30 @@
           </div>
 
           <!-- Apply repairs to the iPhone JSON. Always available here (even at
-               zero repairs) so a "delete all" can be committed too. -->
+               zero repairs) so a "delete all" can be committed too. Disabled
+               while a patch push is still settling on the relay. -->
           <button
             onclick={applyOnDevice}
-            class="w-full py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-            style="background: {patchesDirty
+            disabled={patchesBusy}
+            class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-60"
+            style="background: {patchesDirty && !patchesBusy
               ? 'var(--app-accent)'
-              : 'var(--app-surface-2)'}; color: {patchesDirty
+              : 'var(--app-surface-2)'}; color: {patchesDirty && !patchesBusy
               ? '#ffffff'
-              : 'var(--app-fg)'}; border: 1px solid {patchesDirty
+              : 'var(--app-fg)'}; border: 1px solid {patchesDirty && !patchesBusy
               ? 'var(--app-accent)'
               : 'var(--app-border)'}"
-            >{$t("sync.patches_apply")}</button
+            >{patchesBusy
+              ? $t("sync.patches_preparing")
+              : $t("sync.patches_apply")}</button
           >
           <p class="text-[11px]" style="color: var(--app-muted); opacity: 0.7">
-            {patchesDirty
-              ? $t("sync.patches_unsaved")
-              : $t("sync.patches_apply_hint")}
+            {patchesBusy
+              ? $t("sync.patches_preparing_hint")
+              : patchesDirty
+                ? $t("sync.patches_unsaved")
+                : $t("sync.patches_apply_hint")}
           </p>
-
-          <button
-            onclick={deactivateRelay}
-            class="text-xs transition-opacity hover:opacity-70"
-            style="color: var(--err-text)">{$t("sync.relay_disable")}</button
-          >
         {/if}
 
         {#if relayMsg}
@@ -700,7 +656,170 @@
           </p>
         {/if}
       {/if}
-    </div>
+    </section>
+
+    <!-- ── Gaps in the data ───────────────────────────────────────────── -->
+    {#if entriesStore.gaps.length > 0}
+      <section
+        class="rounded-2xl p-5 space-y-4"
+        style="background: var(--app-surface)"
+      >
+        <div class="flex items-center gap-2.5">
+          <svg
+            class="w-[18px] h-[18px] flex-shrink-0"
+            style="color: var(--app-muted)"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <h2 class="text-sm font-semibold" style="color: var(--app-fg)">
+            {$t("sync.gaps_title")}
+          </h2>
+          <span
+            class="ml-auto text-xs font-mono px-2 py-0.5 rounded-full"
+            style="background: var(--app-accent-subtle); color: var(--app-accent)"
+            >{entriesStore.gaps.length}</span
+          >
+        </div>
+        <p class="text-xs" style="color: var(--app-muted)">
+          {$t("sync.gaps_desc")}
+        </p>
+
+        <div class="space-y-2">
+          {#each entriesStore.gaps as gap (gap.isoCountryCode + "_" + gap.prevDate)}
+            <div
+              class="flex items-center gap-3 text-sm rounded-xl px-3 py-2"
+              style="background: var(--app-surface-2)"
+            >
+              <span class="text-lg leading-none"
+                >{flagEmoji(gap.isoCountryCode)}</span
+              >
+              <div class="flex-1 min-w-0">
+                <p class="truncate" style="color: var(--app-fg)">
+                  {getCountryName(gap.isoCountryCode, $locale)}
+                </p>
+                <p class="text-xs" style="color: var(--app-muted)">
+                  {gapDate(gap.missing[0])}{#if gap.missing.length > 1}
+                    → {gapDate(gap.missing[gap.missing.length - 1])}{/if}
+                  · {gap.missing.length}d
+                </p>
+              </div>
+              <button
+                onclick={() => fillGap(gap)}
+                class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                style="background: var(--app-accent); color: #ffffff"
+                >{$t("sync.gaps_fill")}</button
+              >
+            </div>
+          {/each}
+        </div>
+
+        {#if entriesStore.gaps.length > 1}
+          <button
+            onclick={fillAllGaps}
+            class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+            style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+            >{$t("sync.gaps_fill_all")}</button
+          >
+        {/if}
+      </section>
+    {/if}
+
+    <!-- ── Manual repairs (collapsible; can grow over time) ───────────── -->
+    {#if entriesStore.filledEntries.length > 0}
+      <section
+        class="rounded-2xl p-5"
+        style="background: var(--app-surface)"
+      >
+        <details>
+          <summary
+            class="flex items-center gap-2.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden"
+          >
+            <svg
+              class="w-[18px] h-[18px] flex-shrink-0"
+              style="color: var(--app-muted)"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+              />
+            </svg>
+            <h2 class="text-sm font-semibold" style="color: var(--app-fg)">
+              {$t("sync.filled_title")}
+            </h2>
+            <span
+              class="ml-auto text-xs font-mono px-2 py-0.5 rounded-full"
+              style="background: var(--app-surface-2); color: var(--app-muted)"
+              >{entriesStore.filledEntries.length}</span
+            >
+            <span class="text-xs" style="color: var(--app-muted); opacity: 0.6"
+              >▾</span
+            >
+          </summary>
+
+          <div class="pt-4 space-y-3">
+            <p class="text-xs" style="color: var(--app-muted)">
+              {$t("sync.filled_desc")}
+            </p>
+            <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {#each entriesStore.filledEntries as entry (entry.isoCountryCode + "_" + entry.date)}
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="text-lg leading-none"
+                    >{flagEmoji(entry.isoCountryCode)}</span
+                  >
+                  <span
+                    class="text-xs w-24 flex-shrink-0"
+                    style="color: var(--app-muted)">{gapDate(entry.date)}</span
+                  >
+                  <select
+                    value={entry.isoCountryCode}
+                    onchange={(e) => changeCountry(entry, e.currentTarget.value)}
+                    class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
+                    style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+                  >
+                    {#each allCountries as c}
+                      <option value={c.code}>{c.name}</option>
+                    {/each}
+                  </select>
+                  <button
+                    onclick={() => removeFilled(entry)}
+                    aria-label={$t("sync.filled_remove")}
+                    class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
+                    style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
+                    </svg>
+                  </button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        </details>
+      </section>
+    {/if}
 
     <p
       class="text-center text-[11px] pt-2"
@@ -710,3 +829,39 @@
     </p>
   </div>
 </div>
+
+<!-- ── Confirm disabling automatic sync (destructive) ─────────────────── -->
+{#if confirmDisable}
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-6">
+    <button
+      class="absolute inset-0 cursor-default"
+      style="background: rgba(0,0,0,0.55)"
+      aria-label={$t("sync.cancel")}
+      onclick={() => (confirmDisable = false)}
+    ></button>
+    <div
+      class="relative w-full max-w-sm rounded-2xl p-5 space-y-4"
+      style="background: var(--app-bg); border: 1px solid var(--app-border)"
+    >
+      <h3 class="text-base font-bold" style="color: var(--app-fg)">
+        {$t("sync.disable_title")}
+      </h3>
+      <p class="text-sm" style="color: var(--app-muted)">
+        {$t("sync.disable_body")}
+      </p>
+      <div class="flex gap-2 pt-1">
+        <button
+          onclick={() => (confirmDisable = false)}
+          class="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+          style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+          >{$t("sync.cancel")}</button
+        >
+        <button
+          onclick={confirmDisableRelay}
+          class="flex-1 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-80"
+          style="background: var(--err-text)">{$t("sync.disable_confirm")}</button
+        >
+      </div>
+    </div>
+  </div>
+{/if}

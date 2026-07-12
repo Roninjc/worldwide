@@ -40,17 +40,16 @@
 </script>
 
 {#if show && newest !== null && daysSince !== null}
-  <div class="absolute inset-x-0 top-0 z-20 px-3 pt-3 pointer-events-none">
-    <div
-      class="mx-auto max-w-lg flex items-center gap-3 rounded-xl px-3 py-2.5 pointer-events-auto"
-      style="
-        background: var(--glass-bg);
-        border: 1px solid var(--glass-border);
-        box-shadow: var(--glass-shadow);
-        backdrop-filter: blur(44px) saturate(220%);
-        -webkit-backdrop-filter: blur(44px) saturate(220%);
-      "
-    >
+  <div
+    class="mx-auto max-w-lg w-full flex items-center gap-3 rounded-xl px-3 py-2.5 pointer-events-auto"
+    style="
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+      backdrop-filter: blur(44px) saturate(220%);
+      -webkit-backdrop-filter: blur(44px) saturate(220%);
+    "
+  >
       <svg
         class="w-5 h-5 flex-shrink-0"
         style="color: var(--app-accent)"
@@ -104,6 +103,5 @@
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       </button>
-    </div>
   </div>
 {/if}
