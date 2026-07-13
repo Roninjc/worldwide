@@ -164,31 +164,30 @@
     if (shouldDelete && entry) removeFilled(entry);
   }
 
-  // The segmented control mirrors the real mode; because switching relay→manual
-  // is gated by a confirmation, snap the selector back to the actual mode after
-  // each change so it never shows a mode that wasn't actually applied.
-  let modeSel = $state(syncStore.mode);
-  $effect(() => {
-    modeSel = syncStore.mode;
-  });
-  function onModeChange(v: string) {
-    requestMode(v as SyncMode);
-    modeSel = syncStore.mode;
-  }
+  // The segmented control reflects the *intended* mode (`modeSel`). The effective
+  // `syncStore.mode` only becomes "relay" once the relay is actually configured —
+  // until then the app keeps behaving as manual, so a half-set-up automatic mode
+  // never leaves the user without working manual controls.
+  let modeSel = $state<SyncMode>(syncStore.relay ? "relay" : "manual");
 
-  function requestMode(mode: SyncMode) {
-    if (mode === syncStore.mode) return;
-    // Switching relay → manual tears down the relay: confirm first.
-    if (mode === "manual" && syncStore.relay) {
-      confirmDisable = true;
-      return;
-    }
-    syncStore.mode = mode;
+  function onModeChange(v: string) {
     relayMsg = null;
-    // Entering relay with an already-configured relay: the patches mailbox may
-    // be stale (repairs edited in manual mode don't publish). Republish the
-    // current set so "apply" reconciles the device to exactly what's shown here.
-    if (mode === "relay" && syncStore.relay) markRepairChange();
+    if (v === "relay") {
+      // Reveal the relay setup. Only switch the effective mode if it's already
+      // configured; otherwise stay effectively manual until activation completes.
+      if (syncStore.relay) {
+        syncStore.mode = "relay";
+        markRepairChange();
+      }
+    } else {
+      // Back to manual. Tearing down a configured relay is destructive → confirm.
+      if (syncStore.relay) {
+        confirmDisable = true;
+        modeSel = "relay"; // keep the tab on relay until the user confirms
+      } else {
+        syncStore.mode = "manual";
+      }
+    }
   }
 
   async function confirmDisableRelay() {
@@ -263,6 +262,7 @@
     const pass = generatePassphrase();
     syncStore.setRelay({ url, id, pass });
     syncStore.mode = "relay";
+    modeSel = "relay";
     // Seed the new mailbox with any repairs already made, so the first device
     // sync reconciles to what the PWA shows instead of an empty set.
     if (entriesStore.filledEntries.length > 0) {
@@ -311,6 +311,7 @@
     if (cfg) await deleteFromRelay(cfg);
     syncStore.setRelay(null);
     syncStore.mode = "manual";
+    modeSel = "manual";
     relayMsg = null;
     if (cfg) openScriptableConfig("clear");
   }
@@ -329,6 +330,7 @@
     }
     syncStore.setRelay({ url: cfg.url, id: cfg.id, pass: cfg.pass });
     syncStore.mode = "relay";
+    modeSel = "relay";
     relayUrl = cfg.url;
     restoreText = "";
     await syncNow();
@@ -351,6 +353,10 @@
   }
 
   onMount(async () => {
+    // Normalise a half-configured state: "relay" selected but never set up →
+    // fall back to manual so behaviour stays consistent.
+    if (syncStore.mode === "relay" && !syncStore.relay) syncStore.mode = "manual";
+
     if ($page.url.searchParams.get("shared") === "1") {
       const files = await consumePendingFiles();
       if (files.length > 0) await handleFiles(files);
@@ -619,7 +625,7 @@
         onchange={onModeChange}
       />
 
-      {#if syncStore.mode === "manual"}
+      {#if modeSel === "manual"}
         <p class="text-xs" style="color: var(--app-muted)">
           {$t("sync.mode_manual_desc")}
         </p>
@@ -886,8 +892,10 @@
                       : $t("sync.patches_apply_hint")}
                 </p>
               </div>
-            {:else if syncStore.mode === "manual"}
-              <!-- Server-less apply (4a): tap on this device, or QR for another -->
+            {:else}
+              <!-- Server-less apply (4a): tap on this device, or QR for another.
+                   Also the fallback while automatic mode is selected but not yet
+                   configured — the app behaves as manual until setup completes. -->
               <div class="space-y-3">
                 <p class="text-xs" style="color: var(--app-muted)">
                   {hasFilled
@@ -1097,7 +1105,7 @@
       <button
         onclick={() => {
           relaySheetOpen = false;
-          requestMode("manual");
+          onModeChange("manual");
         }}
         class="w-full py-2.5 rounded-xl text-sm font-medium transition-transform active:scale-95"
         style="background: transparent; color: var(--err-text); border: 1px solid var(--err-border)"
