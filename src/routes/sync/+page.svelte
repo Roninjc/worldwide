@@ -11,9 +11,12 @@
   import { syncFromRelay, deleteFromRelay, pushPatchesToRelay } from "$lib/sync";
   import { t, locale } from "svelte-i18n";
   import { consumePendingFiles } from "$lib/pendingShare";
-  import { flagEmoji } from "$lib/flag";
   import { getCountryName, getAllCountryNames } from "$lib/countryName";
   import QRCode from "qrcode";
+  import SegmentedControl from "$lib/components/SegmentedControl.svelte";
+  import BottomSheet from "$lib/components/BottomSheet.svelte";
+  import Modal from "$lib/components/Modal.svelte";
+  import FlagBleed from "$lib/components/FlagBleed.svelte";
   import type { LocationEntry } from "$lib/types";
   import type { Gap } from "$lib/gaps";
 
@@ -103,6 +106,75 @@
   let patchesBusy = $state(false);
   // Confirmation gate before the destructive relay→manual switch.
   let confirmDisable = $state(false);
+
+  // Bottom sheets for the denser flows.
+  let relaySheetOpen = $state(false);
+  let repairsSheetOpen = $state(false);
+
+  // ── Swipe-to-delete for repaired days ────────────────────────────────
+  // Only one card is dragged at a time. `touch-action: pan-y` on the card lets
+  // vertical scroll through while we own horizontal drags.
+  let swipeKey = $state<string | null>(null);
+  let swipeDX = $state(0);
+  let swiping = $state(false);
+  let swStartX = 0;
+  let swStartY = 0;
+  let swDecided = false;
+  let swHorizontal = false;
+  let swEntry: LocationEntry | null = null;
+
+  function keyOf(e: LocationEntry) {
+    return e.isoCountryCode + "_" + e.date;
+  }
+  function swipeStart(ev: PointerEvent, entry: LocationEntry) {
+    swStartX = ev.clientX;
+    swStartY = ev.clientY;
+    swDecided = false;
+    swHorizontal = false;
+    swiping = false;
+    swEntry = entry;
+    swipeKey = keyOf(entry);
+    swipeDX = 0;
+  }
+  function swipeMove(ev: PointerEvent) {
+    if (swipeKey === null) return;
+    const dx = ev.clientX - swStartX;
+    const dy = ev.clientY - swStartY;
+    if (!swDecided) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      swDecided = true;
+      swHorizontal = Math.abs(dx) > Math.abs(dy);
+      if (!swHorizontal) {
+        swipeKey = null;
+        return;
+      }
+      swiping = true;
+      (ev.currentTarget as HTMLElement).setPointerCapture?.(ev.pointerId);
+    }
+    if (swHorizontal) swipeDX = Math.max(-110, Math.min(0, dx));
+  }
+  function swipeEnd() {
+    const entry = swEntry;
+    const shouldDelete = swiping && entry && swipeDX < -64;
+    swiping = false;
+    swipeKey = null;
+    swipeDX = 0;
+    swEntry = null;
+    swDecided = false;
+    if (shouldDelete && entry) removeFilled(entry);
+  }
+
+  // The segmented control mirrors the real mode; because switching relay→manual
+  // is gated by a confirmation, snap the selector back to the actual mode after
+  // each change so it never shows a mode that wasn't actually applied.
+  let modeSel = $state(syncStore.mode);
+  $effect(() => {
+    modeSel = syncStore.mode;
+  });
+  function onModeChange(v: string) {
+    requestMode(v as SyncMode);
+    modeSel = syncStore.mode;
+  }
 
   function requestMode(mode: SyncMode) {
     if (mode === syncStore.mode) return;
@@ -538,23 +610,14 @@
         </h2>
       </div>
 
-      <div
-        class="flex rounded-lg overflow-hidden text-sm"
-        style="border: 1px solid var(--app-border)"
-      >
-        {#each [["manual", $t("sync.mode_manual")], ["relay", $t("sync.mode_relay")]] as [value, label]}
-          {@const active = syncStore.mode === value}
-          <button
-            class="flex-1 py-2 transition-colors"
-            style="background: {active
-              ? 'var(--app-accent)'
-              : 'var(--app-surface-2)'}; color: {active
-              ? '#ffffff'
-              : 'var(--app-muted)'}"
-            onclick={() => requestMode(value as SyncMode)}>{label}</button
-          >
-        {/each}
-      </div>
+      <SegmentedControl
+        options={[
+          { value: "manual", label: $t("sync.mode_manual") },
+          { value: "relay", label: $t("sync.mode_relay") },
+        ]}
+        bind:value={modeSel}
+        onchange={onModeChange}
+      />
 
       {#if syncStore.mode === "manual"}
         <p class="text-xs" style="color: var(--app-muted)">
@@ -646,43 +709,26 @@
             {/if}
           </div>
 
-          <!-- Backup: the only copy of the passphrase the user can keep -->
-          <div
-            class="rounded-lg p-3 space-y-2"
-            style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
-          >
-            <p class="text-xs font-medium" style="color: var(--ok-title)">
-              {$t("sync.relay_backup_title")}
-            </p>
-            <p class="text-[11px]" style="color: var(--ok-body)">
-              {$t("sync.relay_backup_warn")}
-            </p>
-            <button
-              onclick={copyBackup}
-              class="w-full py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-              style="background: var(--app-accent); color: #ffffff"
-              >{copied
-                ? $t("sync.copied")
-                : $t("sync.relay_backup_copy")}</button
-            >
-          </div>
-
           <div class="flex gap-2">
             <button
               onclick={syncNow}
               disabled={syncing}
-              class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-              style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+              class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-transform active:scale-95 disabled:opacity-50"
+              style="background: var(--app-accent); color: #ffffff"
               >{syncing
                 ? $t("sync.importing")
                 : $t("sync.relay_sync_now")}</button
             >
             <button
-              onclick={reconfigureScriptable}
-              class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+              onclick={() => (relaySheetOpen = true)}
+              class="w-11 flex-shrink-0 grid place-items-center rounded-xl transition-transform active:scale-95"
               style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-              >{$t("sync.relay_reconfigure")}</button
+              aria-label={$t("sync.relay_reconfigure")}
             >
+              <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 7h-9" /><path d="M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" />
+              </svg>
+            </button>
           </div>
         {/if}
 
@@ -699,32 +745,46 @@
       {/if}
     </section>
 
-    <!-- ── Data repairs: gaps + manual fills, unified ─────────────────── -->
+    <!-- ── Data repairs: summary card → editor sheet ──────────────────── -->
     {#if hasGaps || hasFilled || pendingChanges}
-      <section
-        class="rounded-2xl p-5 space-y-5"
+      <button
+        class="w-full flex items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.99]"
         style="background: var(--app-surface)"
+        onclick={() => (repairsSheetOpen = true)}
         transition:slide={{ duration: 260, easing: cubicOut }}
       >
-        <div class="flex items-center gap-2.5">
-          <svg
-            class="w-[18px] h-[18px] flex-shrink-0"
-            style="color: var(--app-muted)"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-            />
+        <div
+          class="w-9 h-9 grid place-items-center rounded-xl flex-shrink-0"
+          style="background: var(--app-accent-subtle); color: var(--app-accent)"
+        >
+          <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
           </svg>
-          <h2 class="text-sm font-semibold" style="color: var(--app-fg)">
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold" style="color: var(--app-fg)">
+            {$t("sync.repairs_title")}
+          </p>
+          <p class="text-xs truncate" style="color: var(--app-muted)">
+            {#if hasGaps}{$t("sync.gaps_title")} · {entriesStore.gaps.length}{/if}{#if hasGaps && hasFilled} · {/if}{#if hasFilled}{$t("sync.filled_title")} · {entriesStore.filledEntries.length}{/if}
+          </p>
+        </div>
+        {#if pendingChanges}
+          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background: var(--app-accent)"></span>
+        {/if}
+        <svg class="w-4 h-4 flex-shrink-0" style="color: var(--app-muted); opacity: 0.6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+
+      <BottomSheet bind:open={repairsSheetOpen}>
+        {#snippet header()}
+          <h2 class="text-lg font-bold" style="color: var(--app-fg)">
             {$t("sync.repairs_title")}
           </h2>
-        </div>
+        {/snippet}
+
+        <div class="space-y-5 pb-2">
 
         {#if hasGaps}
           <div class="space-y-3" transition:slide={{ duration: 240, easing: cubicOut }}>
@@ -748,15 +808,13 @@
             <div class="space-y-2">
               {#each entriesStore.gaps as gap (gap.isoCountryCode + "_" + gap.prevDate)}
                 <div
-                  class="flex items-center gap-3 text-sm rounded-xl px-3 py-2"
+                  class="relative overflow-hidden flex items-center gap-3 text-sm rounded-xl px-3 py-2"
                   style="background: var(--app-surface-2)"
                   animate:flip={{ duration: 250 }}
                   transition:slide={{ duration: 200, easing: cubicOut }}
                 >
-                  <span class="text-lg leading-none"
-                    >{flagEmoji(gap.isoCountryCode)}</span
-                  >
-                  <div class="flex-1 min-w-0">
+                  <FlagBleed code={gap.isoCountryCode} />
+                  <div class="relative flex-1 min-w-0 pl-[3.5rem]">
                     <p class="truncate" style="color: var(--app-fg)">
                       {getCountryName(gap.isoCountryCode, $locale)}
                     </p>
@@ -801,7 +859,7 @@
                 <button
                   onclick={applyOnDevice}
                   disabled={patchesBusy}
-                  class="w-full py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-60"
+                  class="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-transform active:scale-[0.98] disabled:opacity-60"
                   style="background: {pendingChanges && !patchesBusy
                     ? 'var(--app-accent)'
                     : 'var(--app-surface-2)'}; color: {pendingChanges &&
@@ -811,10 +869,12 @@
                   !patchesBusy
                     ? 'var(--app-accent)'
                     : 'var(--app-border)'}"
-                  >{patchesBusy
-                    ? $t("sync.patches_preparing")
-                    : $t("sync.patches_apply")}</button
                 >
+                  <svg class="w-[18px] h-[18px] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2.5" /><path d="M12 18h.01" />
+                  </svg>
+                  {patchesBusy ? $t("sync.patches_preparing") : $t("sync.patches_apply")}
+                </button>
                 <p
                   class="text-[11px]"
                   style="color: var(--app-muted); opacity: 0.7"
@@ -834,49 +894,28 @@
                     ? $t("sync.patches_local_hint")
                     : $t("sync.patches_clear_hint")}
                 </p>
-                <div class="flex gap-2">
+                <div class="space-y-2">
                   <button
                     onclick={applyPatchesInline}
-                    class="flex-1 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                    class="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-transform active:scale-[0.98]"
                     style="background: var(--app-accent); color: #ffffff"
-                    >{$t("sync.patches_apply")}</button
                   >
+                    <svg class="w-[18px] h-[18px] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="2.5" /><path d="M12 18h.01" />
+                    </svg>
+                    {$t("sync.patches_apply")}
+                  </button>
                   <button
-                    onclick={() => (showQr = !showQr)}
-                    class="flex-1 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                    onclick={() => (showQr = true)}
+                    class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-transform active:scale-[0.98]"
                     style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-                    >{showQr
-                      ? $t("sync.patches_qr_hide")
-                      : $t("sync.patches_qr_show")}</button
                   >
+                    <svg class="w-[18px] h-[18px] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
+                    {$t("sync.patches_qr_show")}
+                  </button>
                 </div>
-
-                {#if showQr}
-                  {#if qrError}
-                    <p
-                      class="text-xs"
-                      style="color: var(--err-text)"
-                      transition:slide={{ duration: 360, easing: cubicOut }}
-                    >
-                      {$t("sync.patches_qr_toobig")}
-                    </p>
-                  {:else}
-                    <div
-                      class="flex flex-col items-center gap-2 py-1"
-                      transition:slide={{ duration: 360, easing: cubicOut }}
-                    >
-                      <div class="rounded-xl bg-white p-2">
-                        <img src={qrDataUrl} alt="QR" class="w-44 h-44 block" />
-                      </div>
-                      <p
-                        class="text-[11px] text-center max-w-xs"
-                        style="color: var(--app-muted)"
-                      >
-                        {$t("sync.patches_qr_hint")}
-                      </p>
-                    </div>
-                  {/if}
-                {/if}
               </div>
             {/if}
 
@@ -914,52 +953,81 @@
                     <p class="text-xs" style="color: var(--app-muted)">
                       {$t("sync.filled_desc")}
                     </p>
-                    <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    <div class="space-y-2 max-h-80 overflow-y-auto pr-0.5">
                       {#each entriesStore.filledEntries as entry (entry.isoCountryCode + "_" + entry.date)}
                         <div
-                          class="flex items-center gap-2 text-sm"
+                          class="relative overflow-hidden rounded-xl"
                           animate:flip={{ duration: 250 }}
                           transition:slide={{ duration: 200, easing: cubicOut }}
                         >
-                          <span class="text-lg leading-none"
-                            >{flagEmoji(entry.isoCountryCode)}</span
+                          <!-- Delete backing, revealed on left-swipe -->
+                          <div
+                            class="absolute inset-0 flex items-center justify-end pr-5 rounded-xl"
+                            style="background: var(--err-bg); border: 1px solid var(--err-border); opacity: {swipeKey ===
+                            entry.isoCountryCode + '_' + entry.date
+                              ? 1
+                              : 0}; transition: opacity 0.15s ease"
                           >
-                          <span
-                            class="text-xs w-24 flex-shrink-0"
-                            style="color: var(--app-muted)"
-                            >{gapDate(entry.date)}</span
-                          >
-                          <select
-                            value={entry.isoCountryCode}
-                            onchange={(e) =>
-                              changeCountry(entry, e.currentTarget.value)}
-                            class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
-                            style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
-                          >
-                            {#each allCountries as c}
-                              <option value={c.code}>{c.name}</option>
-                            {/each}
-                          </select>
-                          <button
-                            onclick={() => removeFilled(entry)}
-                            aria-label={$t("sync.filled_remove")}
-                            class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-opacity hover:opacity-70"
-                            style="background: var(--app-surface-2); color: var(--err-text); border: 1px solid var(--app-border)"
-                          >
-                            <svg
-                              class="w-4 h-4"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                            >
-                              <path d="M3 6h18" />
-                              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                              <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
+                            <svg class="w-5 h-5" style="color: var(--err-text)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
                             </svg>
-                          </button>
+                          </div>
+                          <!-- svelte-ignore a11y_no_static_element_interactions -->
+                          <div
+                            class="relative flex items-center gap-3 rounded-xl p-2.5"
+                            style="background: var(--app-surface-2); touch-action: pan-y; transform: translateX({swipeKey ===
+                            entry.isoCountryCode + '_' + entry.date
+                              ? swipeDX
+                              : 0}px); transition: {swiping &&
+                            swipeKey === entry.isoCountryCode + '_' + entry.date
+                              ? 'none'
+                              : 'transform 0.28s cubic-bezier(0.34,1.4,0.64,1)'}"
+                            onpointerdown={(e) => swipeStart(e, entry)}
+                            onpointermove={swipeMove}
+                            onpointerup={swipeEnd}
+                            onpointercancel={swipeEnd}
+                          >
+                          <!-- Flag bleeding in from the left; fades as you swipe to cede room to the delete -->
+                          <FlagBleed
+                            code={entry.isoCountryCode}
+                            opacity={0.5 *
+                              (1 -
+                                (swipeKey === entry.isoCountryCode + "_" + entry.date
+                                  ? Math.min(1, Math.abs(swipeDX) / 110)
+                                  : 0))}
+                          />
+                          <div class="relative flex-1 min-w-0 pl-[3.5rem] flex items-center gap-3 max-[360px]:flex-col max-[360px]:items-start max-[360px]:gap-0.5">
+                            <!-- Date (fixed column so the country selectors line up) -->
+                            <span
+                              class="flex-shrink-0 w-[5.25rem] max-[360px]:w-auto text-xs tabular-nums whitespace-nowrap"
+                              style="color: var(--app-muted)"
+                            >
+                              {gapDate(entry.date)}
+                            </span>
+                            <!-- Country selector: fills the space on the right, native picker overlaid -->
+                            <div class="relative flex-1 min-w-0 max-[360px]:w-full flex items-center gap-1">
+                              <span
+                                class="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-[15px] font-medium"
+                                style="color: var(--app-fg); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.4rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 1.4rem), transparent)"
+                              >
+                                {getCountryName(entry.isoCountryCode, $locale)}
+                              </span>
+                              <svg class="w-3.5 h-3.5 flex-shrink-0" style="color: var(--app-muted)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                              <select
+                                value={entry.isoCountryCode}
+                                onchange={(e) => changeCountry(entry, e.currentTarget.value)}
+                                aria-label={getCountryName(entry.isoCountryCode, $locale)}
+                                class="absolute inset-0 w-full opacity-0 cursor-pointer"
+                              >
+                                {#each allCountries as c}
+                                  <option value={c.code}>{c.name}</option>
+                                {/each}
+                              </select>
+                            </div>
+                          </div>
+                          </div>
                         </div>
                       {/each}
                     </div>
@@ -969,7 +1037,8 @@
             {/if}
           </div>
         {/if}
-      </section>
+        </div>
+      </BottomSheet>
     {/if}
 
     <p
@@ -980,6 +1049,91 @@
     </p>
   </div>
 </div>
+
+<!-- ── Relay management sheet ─────────────────────────────────────────── -->
+{#if syncStore.relay}
+  <BottomSheet bind:open={relaySheetOpen}>
+    {#snippet header()}
+      <h2 class="text-lg font-bold" style="color: var(--app-fg)">
+        {$t("sync.mode_relay")}
+      </h2>
+    {/snippet}
+
+    <div class="space-y-4 pb-2">
+      <div
+        class="rounded-xl p-3 flex justify-between items-center text-xs gap-2"
+        style="background: var(--app-surface)"
+      >
+        <span style="color: var(--app-muted)">{$t("sync.relay_id")}</span>
+        <span class="font-mono truncate" style="color: var(--app-fg)">{syncStore.relay.id}</span>
+      </div>
+
+      <!-- Backup: the only copy of the passphrase the user can keep -->
+      <div
+        class="rounded-xl p-3 space-y-2"
+        style="background: var(--ok-bg); border: 1px solid var(--ok-border)"
+      >
+        <p class="text-xs font-medium" style="color: var(--ok-title)">
+          {$t("sync.relay_backup_title")}
+        </p>
+        <p class="text-[11px]" style="color: var(--ok-body)">
+          {$t("sync.relay_backup_warn")}
+        </p>
+        <button
+          onclick={copyBackup}
+          class="w-full py-2 rounded-lg text-xs font-medium transition-transform active:scale-95"
+          style="background: var(--app-accent); color: #ffffff"
+          >{copied ? $t("sync.copied") : $t("sync.relay_backup_copy")}</button
+        >
+      </div>
+
+      <button
+        onclick={reconfigureScriptable}
+        class="w-full py-2.5 rounded-xl text-sm font-medium transition-transform active:scale-95"
+        style="background: var(--app-surface-2); color: var(--app-fg); border: 1px solid var(--app-border)"
+        >{$t("sync.relay_reconfigure")}</button
+      >
+
+      <button
+        onclick={() => {
+          relaySheetOpen = false;
+          requestMode("manual");
+        }}
+        class="w-full py-2.5 rounded-xl text-sm font-medium transition-transform active:scale-95"
+        style="background: transparent; color: var(--err-text); border: 1px solid var(--err-border)"
+        >{$t("sync.relay_disable")}</button
+      >
+    </div>
+  </BottomSheet>
+{/if}
+
+<!-- ── QR modal: tap the code to apply here, tap the blurred backdrop to close ── -->
+<Modal bind:open={showQr}>
+  {#if qrError}
+    <div
+      class="rounded-2xl p-5 max-w-xs text-center"
+      style="background: var(--app-surface-2); border: 1px solid var(--app-border)"
+    >
+      <p class="text-sm" style="color: var(--err-text)">{$t("sync.patches_qr_toobig")}</p>
+    </div>
+  {:else}
+    <div
+      class="rounded-3xl p-5 flex flex-col items-center gap-3"
+      style="background: var(--app-surface-2); border: 1px solid var(--app-border)"
+    >
+      <button
+        onclick={applyPatchesInline}
+        class="rounded-2xl bg-white p-3 transition-transform active:scale-95"
+        aria-label={$t("sync.patches_apply")}
+      >
+        <img src={qrDataUrl} alt="QR" class="w-60 h-60 block" />
+      </button>
+      <p class="text-xs text-center max-w-[15rem]" style="color: var(--app-muted)">
+        {$t("sync.patches_qr_hint")}
+      </p>
+    </div>
+  {/if}
+</Modal>
 
 <!-- ── Confirm disabling automatic sync (destructive) ─────────────────── -->
 {#if confirmDisable}

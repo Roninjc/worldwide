@@ -25,7 +25,13 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if open}
-  <div class="fixed inset-0 z-50 flex flex-col justify-end">
+  <!-- Height pinned to 100dvh (viewport-relative) rather than inset-0, so the
+       sheet always reaches the true bottom even when rendered inside a nested
+       scroll container (where the fixed containing block can fall short). -->
+  <div
+    class="fixed inset-x-0 top-0 z-50 flex flex-col justify-end"
+    style="height: 100dvh"
+  >
     <button
       class="absolute inset-0 cursor-default"
       style="background: rgba(0,0,0,0.5)"
