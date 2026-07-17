@@ -36,19 +36,19 @@
     });
   }
 
+  // Relay mode: pull the latest encrypted blob, then refresh if new data arrived.
+  async function pullFromRelay() {
+    if (syncStore.mode !== "relay" || !syncStore.relay) return;
+    try {
+      const r = await syncFromRelay();
+      if (r.ok && r.imported > 0) await entriesStore.load();
+    } catch {
+      /* stay on local data; the stale banner will signal if it's old */
+    }
+  }
+
   onMount(() => {
-    entriesStore.load().then(() => {
-      // Relay mode: pull the latest encrypted blob on launch, then refresh if new data arrived.
-      if (syncStore.mode === "relay" && syncStore.relay) {
-        syncFromRelay()
-          .then((r) => {
-            if (r.ok && r.imported > 0) entriesStore.load();
-          })
-          .catch(() => {
-            /* stay on local data; the stale banner will signal if it's old */
-          });
-      }
-    });
+    entriesStore.load().then(pullFromRelay);
     themeStore.init();
     updateThemeColor();
     // Observa cambios en el atributo data-theme
@@ -57,6 +57,18 @@
       attributes: true,
       attributeFilter: ["data-theme"],
     });
+
+    // Re-pull when the PWA regains focus — e.g. coming back from Scriptable
+    // after a reconfigure/apply. iOS keeps the standalone app alive in the
+    // background, so onMount alone only covers cold launches. Throttled via
+    // lastSync so the launch pull doesn't fire twice.
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - (syncStore.lastSync ?? 0) < 15_000) return;
+      pullFromRelay();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   });
 
   const navItems = [
