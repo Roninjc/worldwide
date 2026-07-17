@@ -55,6 +55,8 @@
   let statsEl = $state<HTMLDivElement | undefined>();
   let showTopFade = $state(false);
   let showBottomFade = $state(false);
+  // Measured height of the fixed timeline, so the scroll area can pad past it.
+  let timelineHeight = $state(0);
 
   function updateFades() {
     if (!statsEl) return;
@@ -444,46 +446,23 @@
   {:else if entriesStore.totalDays === 0}
     <NoData />
   {:else}
-    <!-- ── Map zone (sized by SVG aspect ratio) ───────────────────────── -->
+    <!-- ── Scroll area: map + stats (timeline is fixed below) ─────────── -->
     <div
-      class="flex-shrink-0 overflow-hidden relative"
-      style="background: var(--map-bg)"
+      class="flex-1 overflow-y-auto"
+      bind:this={statsEl}
+      onscroll={updateFades}
+      style="padding-bottom: {timelineHeight}px"
     >
-      <WorldMap
-        daysByCountry={filteredDaysByCountry}
-        {onCountryClick}
-        bind:api={mapApi}
-      />
-    </div>
+      <!-- Map (sized by SVG aspect ratio) -->
+      <div class="overflow-hidden relative" style="background: var(--map-bg)">
+        <WorldMap
+          daysByCountry={filteredDaysByCountry}
+          {onCountryClick}
+          bind:api={mapApi}
+        />
+      </div>
 
-    <!-- ── Stats zone (scrollable) ────────────────────────────────────── -->
-    <div class="flex-1 min-h-0 relative">
-      <!-- Top fade — visible when scrolled down -->
-      <div
-        class="absolute inset-x-0 top-0 z-10 pointer-events-none h-8"
-        style="
-          background: linear-gradient(to bottom, var(--app-bg) 0%, transparent 100%);
-          opacity: {showTopFade ? 1 : 0};
-          transition: opacity 0.3s ease;
-        "
-      ></div>
-
-      <!-- Bottom fade — visible when more content below -->
-      <div
-        class="absolute inset-x-0 bottom-0 z-10 pointer-events-none h-12"
-        style="
-          background: linear-gradient(to top, var(--app-bg) 0%, transparent 100%);
-          opacity: {showBottomFade ? 1 : 0};
-          transition: opacity 0.3s ease;
-        "
-      ></div>
-
-      <div
-        class="absolute inset-0 overflow-y-auto"
-        bind:this={statsEl}
-        onscroll={updateFades}
-      >
-        <!-- Legend strip -->
+      <!-- Legend strip -->
         <div
           class="flex items-center gap-2 px-4 pt-2.5 pb-1.5 flex-wrap border-b"
           style="border-color: var(--app-border)"
@@ -645,14 +624,23 @@
             </a>
           {/if}
         </div>
-      </div>
-      <!-- end inner scroll -->
     </div>
-    <!-- end stats zone -->
+    <!-- end scroll area -->
 
-    <!-- ── Timeline zone (always visible) ─────────────────────────────── -->
+    <!-- Scroll fades -->
     <div
-      class="flex-shrink-0 border-t"
+      class="absolute inset-x-0 top-0 z-10 pointer-events-none h-8"
+      style="background: linear-gradient(to bottom, var(--app-bg) 0%, transparent 100%); opacity: {showTopFade ? 1 : 0}; transition: opacity 0.3s ease;"
+    ></div>
+    <div
+      class="absolute inset-x-0 z-10 pointer-events-none h-12"
+      style="bottom: {timelineHeight}px; background: linear-gradient(to top, var(--app-bg) 0%, transparent 100%); opacity: {showBottomFade ? 1 : 0}; transition: opacity 0.3s ease;"
+    ></div>
+
+    <!-- ── Timeline zone: fixed just above the nav ────────────────────── -->
+    <div
+      class="fixed inset-x-0 bottom-0 z-20 border-t"
+      bind:clientHeight={timelineHeight}
       style="border-color: var(--app-border); background: var(--app-bg); padding-bottom: var(--nav-clearance)"
     >
       <!-- Controls row -->
