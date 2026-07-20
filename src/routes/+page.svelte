@@ -20,25 +20,27 @@
   const stays = $derived(computeStays(entriesStore.entries));
   const colorMap = $derived(buildColorMap(entriesStore.entries));
 
+  // Starts at the first recorded day (not Jan 1 of that year), so the "all"
+  // preset fits the data flush to the left edge with no empty months.
   const timelineStart = $derived.by(() => {
     if (!entriesStore.entries.length) return Date.now();
     const min = entriesStore.entries.reduce(
       (m, e) => Math.min(m, e.date),
       Infinity,
     );
-    return new Date(new Date(min).getFullYear(), 0, 1).getTime();
+    const d = new Date(min);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   });
 
+  // Ends the day after the last recorded one, mirroring timelineStart.
   const timelineEnd = $derived.by(() => {
     if (!entriesStore.entries.length) return Date.now();
     const max = entriesStore.entries.reduce(
       (m, e) => Math.max(m, e.date),
       -Infinity,
     );
-    const lastDataYear = new Date(max).getFullYear();
-    const currentYear = new Date().getFullYear();
-    const endYear = Math.min(lastDataYear, currentYear);
-    return new Date(endYear + 1, 0, 1).getTime();
+    const d = new Date(max);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
   });
 
   const totalCalendarDays = $derived(
@@ -88,18 +90,32 @@
     );
   });
 
+  // Year boundary gridlines (labels live in yearSegments below).
   const yearMarkers = $derived.by(() => {
     const out: { year: number; left: number }[] = [];
     const y0 = new Date(timelineStart).getFullYear();
     const y1 = new Date(timelineEnd).getFullYear();
-    for (let y = y0; y < y1; y++) {
+    for (let y = y0; y <= y1; y++) {
+      const ms = new Date(y, 0, 1).getTime();
+      if (ms <= timelineStart || ms >= timelineEnd) continue;
       out.push({
         year: y,
-        left: Math.round(
-          ((new Date(y, 0, 1).getTime() - timelineStart) / 86_400_000) *
-            pxPerDay,
-        ),
+        left: Math.round(((ms - timelineStart) / 86_400_000) * pxPerDay),
       });
+    }
+    return out;
+  });
+
+  // One segment per year, sized to its span within the timeline range. Each
+  // holds a sticky year label that the next segment pushes out on scroll.
+  const yearSegments = $derived.by(() => {
+    const out: { year: number; width: number }[] = [];
+    const y0 = new Date(timelineStart).getFullYear();
+    const y1 = new Date(timelineEnd - 1).getFullYear();
+    for (let y = y0; y <= y1; y++) {
+      const startMs = Math.max(new Date(y, 0, 1).getTime(), timelineStart);
+      const endMs = Math.min(new Date(y + 1, 0, 1).getTime(), timelineEnd);
+      out.push({ year: y, width: ((endMs - startMs) / 86_400_000) * pxPerDay });
     }
     return out;
   });
@@ -117,6 +133,29 @@
           label: monthLabels[m],
           left: Math.round(((ms - timelineStart) / 86_400_000) * pxPerDay),
         });
+      }
+    }
+    return out;
+  });
+
+  // Month counterpart of yearSegments, shown only when zoomed in enough.
+  const monthSegments = $derived.by(() => {
+    if (pxPerDay < 5) return [];
+    const out: { key: string; label: string; width: number }[] = [];
+    let y = new Date(timelineStart).getFullYear();
+    let m = new Date(timelineStart).getMonth();
+    while (new Date(y, m, 1).getTime() < timelineEnd) {
+      const startMs = Math.max(new Date(y, m, 1).getTime(), timelineStart);
+      const endMs = Math.min(new Date(y, m + 1, 1).getTime(), timelineEnd);
+      out.push({
+        key: `${y}-${m}`,
+        label: monthLabels[m],
+        width: ((endMs - startMs) / 86_400_000) * pxPerDay,
+      });
+      m++;
+      if (m === 12) {
+        m = 0;
+        y++;
       }
     }
     return out;
@@ -236,7 +275,7 @@
   }
 
   function formatDate(ms: number) {
-    return new Date(ms).toLocaleDateString("es-ES", {
+    return new Date(ms).toLocaleDateString($locale ?? "es-ES", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -270,14 +309,6 @@
     tick().then(() =>
       requestAnimationFrame(() => scrollToYear(new Date().getFullYear())),
     );
-  });
-
-  // ── Visible year label ─────────────────────────────────────────────────
-  const visibleYear = $derived.by(() => {
-    const ms =
-      timelineStart +
-      ((scrollLeft + containerWidth / 2) / pxPerDay) * 86_400_000;
-    return new Date(ms).getFullYear();
   });
 
   // ── Debounced visible window ───────────────────────────────────────────
@@ -319,6 +350,25 @@
   const longestStreak = $derived(
     filteredEntries.length > 0 ? getLongestStreak(filteredEntries) : null,
   );
+
+  // ── Chronological stays list (follows the visible window) ─────────────
+  const filteredStays = $derived(
+    stays.filter(
+      (s) => s.startDate <= visibleEndMs && s.endDate >= visibleStartMs,
+    ),
+  );
+
+  // Grouped by start year, in chronological order.
+  const staysByYear = $derived.by(() => {
+    const groups: { year: number; stays: Stay[] }[] = [];
+    for (const stay of filteredStays) {
+      const year = new Date(stay.startDate).getFullYear();
+      const last = groups[groups.length - 1];
+      if (last && last.year === year) last.stays.push(stay);
+      else groups.push({ year, stays: [stay] });
+    }
+    return groups;
+  });
 
   // ── Period label (shown when not viewing full range) ───────────────────
   const periodLabel = $derived.by(() => {
@@ -395,10 +445,18 @@
   }
 
   function formatShortDate(ms: number) {
-    return new Date(ms).toLocaleDateString("es-ES", {
+    return new Date(ms).toLocaleDateString($locale ?? "es-ES", {
       day: "numeric",
       month: "short",
       year: "numeric",
+    });
+  }
+
+  // No year — the stays list group header already provides it.
+  function formatDayMonth(ms: number) {
+    return new Date(ms).toLocaleDateString($locale ?? "es-ES", {
+      day: "numeric",
+      month: "short",
     });
   }
 </script>
@@ -428,9 +486,9 @@
       )}
     </p>
     <p class="font-mono mt-0.5" style="color: var(--app-fg)">
-      {timelineTooltip.stay.days} día{timelineTooltip.stay.days === 1
-        ? ""
-        : "s"}
+      {$t("stats.day_count", {
+        values: { count: timelineTooltip.stay.days },
+      })}
     </p>
   </div>
 {/if}
@@ -624,6 +682,63 @@
             </a>
           {/if}
         </div>
+
+        <!-- Stays list -->
+        {#if filteredStays.length > 0}
+          <div class="px-4 pb-5">
+            <p
+              class="text-xs uppercase tracking-wider mb-3"
+              style="color: var(--app-muted)"
+            >
+              {$t("stats.stays")}
+            </p>
+            <div class="space-y-4">
+              {#each staysByYear as group (group.year)}
+                <div>
+                  <p
+                    class="text-xs font-mono mb-1"
+                    style="color: var(--app-muted); opacity: 0.7"
+                  >
+                    {group.year}
+                  </p>
+                  {#each group.stays as stay (stay.isoCountryCode + stay.startDate)}
+                    {@const color =
+                      colorMap.get(stay.isoCountryCode) ?? "#64748b"}
+                    <button
+                      class="w-full flex items-center gap-3 py-2 border-b last:border-0 text-left transition-opacity active:opacity-60"
+                      style="border-color: var(--app-border)"
+                      onclick={() => (selectedCountry = stay.isoCountryCode)}
+                    >
+                      <span
+                        class="w-1 h-6 rounded-full flex-shrink-0"
+                        style="background: {color}"
+                      ></span>
+                      <span class="text-lg leading-none flex-shrink-0"
+                        >{flagEmoji(stay.isoCountryCode)}</span
+                      >
+                      <span
+                        class="flex-1 min-w-0 text-sm truncate"
+                        style="color: var(--app-fg)"
+                        >{getCountryName(stay.isoCountryCode, $locale)}</span
+                      >
+                      <span
+                        class="text-xs font-mono flex-shrink-0"
+                        style="color: var(--app-muted)"
+                        >{formatDayMonth(stay.startDate)}{stay.days > 1
+                          ? ` → ${formatDayMonth(stay.endDate)}`
+                          : ""}</span
+                      >
+                      <span
+                        class="text-sm font-mono flex-shrink-0 w-9 text-right"
+                        style="color: var(--app-accent)">{stay.days}d</span
+                      >
+                    </button>
+                  {/each}
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
     </div>
     <!-- end scroll area -->
 
@@ -643,37 +758,21 @@
       bind:clientHeight={timelineHeight}
       style="border-color: var(--app-border); background: var(--app-bg); padding-bottom: var(--nav-clearance)"
     >
-      <!-- Controls row -->
+      <!-- Controls row: presets left, zoom right -->
       <div class="px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">
-        <!-- Year + period indicator -->
-        <div class="flex items-center gap-1.5 min-w-0 text-xs">
-          <span class="font-mono" style="color: var(--app-muted)"
-            >{visibleYear}</span
-          >
-          {#if periodLabel}
-            <span style="color: var(--app-accent); opacity: 0.5">·</span>
-            <span
-              class="font-mono truncate"
-              style="color: var(--app-accent); opacity: 0.65"
-              >{periodLabel}</span
+        <div
+          class="flex items-center rounded-lg overflow-hidden text-xs"
+          style="border: 1px solid var(--app-border)"
+        >
+          {#each [[$t("timeline.preset_all"), -1], [$t("timeline.preset_1y"), 365], [$t("timeline.preset_6m"), 182], [$t("timeline.preset_1m"), 30]] as [label, days]}
+            <button
+              class="px-2.5 py-1.5 transition-opacity hover:opacity-70 border-r last:border-0"
+              style="background: var(--app-surface-2); color: var(--app-muted); border-color: var(--app-border)"
+              onclick={() => setPreset(Number(days))}>{label}</button
             >
-          {/if}
+          {/each}
         </div>
-
-        <!-- Preset + zoom buttons -->
         <div class="flex items-center gap-1.5 flex-shrink-0">
-          <div
-            class="flex items-center rounded-lg overflow-hidden text-xs"
-            style="border: 1px solid var(--app-border)"
-          >
-            {#each [["Todo", -1], ["1a", 365], ["6m", 182], ["1m", 30]] as [label, days]}
-              <button
-                class="px-2.5 py-1.5 transition-opacity hover:opacity-70 border-r last:border-0"
-                style="background: var(--app-surface-2); color: var(--app-muted); border-color: var(--app-border)"
-                onclick={() => setPreset(Number(days))}>{label}</button
-              >
-            {/each}
-          </div>
           <button
             class="w-8 h-8 flex items-center justify-center rounded-lg text-lg leading-none transition-opacity hover:opacity-70"
             style="background: var(--app-surface-2); border: 1px solid var(--app-border); color: var(--app-muted)"
@@ -707,33 +806,60 @@
       >
         <div class="relative" style="width: {totalWidth}px; height: 72px;">
           <!-- Year boundaries -->
-          {#each yearMarkers as { year, left }}
+          {#each yearMarkers as { year, left } (year)}
             <div
               class="absolute top-0 bottom-0 border-l"
               style="left: {left}px; border-color: var(--app-border); opacity: 0.8"
-            >
-              <span
-                class="absolute top-1 left-1.5 text-xs font-bold select-none"
-                style="color: var(--app-muted)">{year}</span
-              >
-            </div>
+            ></div>
           {/each}
 
+          <!-- Sticky year labels: pinned to the left edge while their year is
+               in view, pushed out by the next year's segment -->
+          <div class="absolute inset-x-0 top-0 flex pointer-events-none">
+            {#each yearSegments as seg (seg.year)}
+              <!-- Horizontal padding keeps a gap between the outgoing label
+                   and the incoming one during the push -->
+              <div
+                class="flex-none"
+                style="width: {seg.width}px; padding-left: 6px; padding-right: 14px"
+              >
+                {#if seg.width >= 48}
+                  <span
+                    class="sticky inline-block pt-1 text-xs font-bold select-none"
+                    style="left: 6px; color: var(--app-muted)">{seg.year}</span
+                  >
+                {/if}
+              </div>
+            {/each}
+          </div>
+
           <!-- Month gridlines -->
-          {#each monthMarkers as { label, left }}
+          {#each monthMarkers as { left }}
             <div
               class="absolute border-l pointer-events-none"
               style="left: {left}px; top: 18px; bottom: 12px; border-color: var(--app-border); opacity: 0.6"
             ></div>
-            {#if pxPerDay >= 5}
-              <span
-                class="absolute text-[9px] select-none"
-                style="left: {left +
-                  2}px; bottom: 2px; color: var(--app-muted); opacity: 0.6"
-                >{label}</span
-              >
-            {/if}
           {/each}
+
+          <!-- Sticky month labels, same push effect as the years -->
+          {#if monthSegments.length}
+            <div class="absolute inset-x-0 bottom-0 flex pointer-events-none">
+              {#each monthSegments as seg (seg.key)}
+                <div
+                  class="flex-none"
+                  style="width: {seg.width}px; padding-left: 6px; padding-right: 14px"
+                >
+                  {#if seg.width >= 36}
+                    <span
+                      class="sticky inline-block pb-0.5 text-[9px] select-none"
+                      style="left: 6px; color: var(--app-muted); opacity: 0.6"
+                      >{seg.label}</span
+                    >
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
 
           <!-- Stays track -->
           <div class="absolute left-0 right-0" style="top: 20px; height: 36px;">
@@ -855,7 +981,9 @@
               {selectedStat.days}
             </p>
             <p class="text-xs mt-0.5" style="color: var(--app-muted)">
-              días{periodLabel ? ` en ${periodLabel}` : ""}
+              {periodLabel
+                ? $t("stats.days_in_period", { values: { period: periodLabel } })
+                : $t("stats.days")}
             </p>
           </div>
           <div
@@ -869,7 +997,9 @@
               {selectedStays.length}
             </p>
             <p class="text-xs mt-0.5" style="color: var(--app-muted)">
-              estanci{selectedStays.length === 1 ? "a" : "as"}
+              {$t("stats.stay_count", {
+                values: { count: selectedStays.length },
+              })}
             </p>
           </div>
           {#if periodLabel && selectedAllTimeStat && selectedAllTimeStat.days !== selectedStat.days}
@@ -884,7 +1014,7 @@
                 {selectedAllTimeStat.days}
               </p>
               <p class="text-xs mt-0.5" style="color: var(--app-muted)">
-                días totales
+                {$t("stats.days_total")}
               </p>
             </div>
           {/if}
@@ -897,7 +1027,7 @@
               class="text-xs uppercase tracking-wider mb-2"
               style="color: var(--app-muted)"
             >
-              Estancias
+              {$t("stats.stays")}
             </p>
             <div class="space-y-1.5">
               {#each selectedStays as stay}
