@@ -151,7 +151,7 @@
 </script>
 
 <div
-  class="h-dvh flex flex-col overflow-hidden"
+  class="h-full flex flex-col overflow-hidden"
   style="background: var(--app-bg); color: var(--app-fg);"
 >
   {#if $isLoading}

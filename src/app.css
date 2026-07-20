@@ -94,6 +94,12 @@ html, body {
 }
 
 body {
+	/* Altura exacta del viewport con el safe-area DENTRO (border-box).
+	   Si el padding se suma a la altura, el documento gana ~inset-top px de
+	   scroll propio y los gestos se encadenan: aparece el "doble scroll" al
+	   llegar arriba o abajo de cualquier página. */
+	height: 100dvh;
+	overflow: hidden;
 	padding-top: env(safe-area-inset-top);
 	padding-left: env(safe-area-inset-left);
 	padding-right: env(safe-area-inset-right);
