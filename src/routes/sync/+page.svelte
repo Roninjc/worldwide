@@ -397,7 +397,7 @@
 
 <div
   class="flex-1 overflow-y-auto"
-  style="padding-bottom: var(--nav-clearance)"
+  style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: var(--nav-clearance)"
 >
   <div class="max-w-lg mx-auto px-4 py-8 space-y-8">
     <div>

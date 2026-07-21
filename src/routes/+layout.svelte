@@ -151,8 +151,8 @@
 </script>
 
 <div
-  class="flex flex-col overflow-hidden"
-  style="height: calc(100dvh - env(safe-area-inset-top, 0px)); background: var(--app-bg); color: var(--app-fg);"
+  class="h-dvh flex flex-col overflow-hidden"
+  style="background: var(--app-bg); color: var(--app-fg);"
 >
   {#if $isLoading}
     <div class="flex-1 flex items-center justify-center">

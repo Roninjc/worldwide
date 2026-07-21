@@ -495,13 +495,17 @@
       onscroll={updateFades}
       style="padding-bottom: {timelineHeight}px"
     >
-      <!-- Map (sized by SVG aspect ratio) -->
-      <div class="overflow-hidden relative" style="background: var(--map-bg)">
+      <!-- Map (sized by SVG aspect ratio). The safe-area padding lives here,
+           on the ocean background, so the notch area reads as map -->
+      <div
+        class="overflow-hidden relative"
+        style="background: var(--map-bg); padding-top: env(safe-area-inset-top, 0px)"
+      >
         <WorldMap daysByCountry={filteredDaysByCountry} />
         {#if periodLabel}
           <div
-            class="absolute top-2 left-2 px-2.5 py-1.5 rounded-lg text-xs font-mono shadow-lg pointer-events-none"
-            style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--app-muted); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
+            class="absolute left-2 px-2.5 py-1.5 rounded-lg text-xs font-mono shadow-lg pointer-events-none"
+            style="top: calc(env(safe-area-inset-top, 0px) + 0.5rem); background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--app-muted); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
             transition:fade={{ duration: 150 }}
           >
             {periodLabel}

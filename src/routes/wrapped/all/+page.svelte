@@ -94,7 +94,10 @@
   }
 </script>
 
-<div class="flex-1 overflow-y-auto" style="padding-bottom: var(--nav-clearance)">
+<div
+  class="flex-1 overflow-y-auto"
+  style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: var(--nav-clearance)"
+>
   {#if !entriesStore.loaded}
     <div class="w-full min-h-[70vh] flex items-center justify-center text-sm" style="color: var(--app-muted)">
       {$t("loading")}
