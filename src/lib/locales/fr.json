@@ -22,6 +22,7 @@
   "stats.stay_count": "{count, plural, one {séjour} other {séjours}}",
   "stats.day_count": "{count, plural, one {# jour} other {# jours}}",
   "timeline.preset_all": "Tout",
+  "timeline.preset_current": "Actuel",
   "timeline.preset_1y": "1a",
   "timeline.preset_6m": "6m",
   "timeline.preset_1m": "1m",

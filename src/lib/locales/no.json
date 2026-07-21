@@ -22,6 +22,7 @@
   "stats.stay_count": "{count, plural, one {opphold} other {opphold}}",
   "stats.day_count": "{count, plural, one {# dag} other {# dager}}",
   "timeline.preset_all": "Alt",
+  "timeline.preset_current": "I år",
   "timeline.preset_1y": "1å",
   "timeline.preset_6m": "6m",
   "timeline.preset_1m": "1m",

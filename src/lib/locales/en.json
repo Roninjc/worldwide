@@ -22,6 +22,7 @@
   "stats.stay_count": "{count, plural, one {stay} other {stays}}",
   "stats.day_count": "{count, plural, one {# day} other {# days}}",
   "timeline.preset_all": "All",
+  "timeline.preset_current": "Current",
   "timeline.preset_1y": "1y",
   "timeline.preset_6m": "6m",
   "timeline.preset_1m": "1m",

@@ -198,6 +198,34 @@
     }
   }
 
+  // Current year, or the last one with data. Preset label + initial view.
+  const presetYear = $derived(
+    Math.min(new Date().getFullYear(), new Date(timelineEnd - 1).getFullYear()),
+  );
+
+  // Fit presetYear exactly: from Jan 1 — or the first datum, if later — to
+  // the end of the data. Also the initial view.
+  function fitPresetYear() {
+    if (!scrollEl) return;
+    const w = scrollEl.clientWidth;
+    containerWidth = w;
+    const startMs = Math.max(
+      new Date(presetYear, 0, 1).getTime(),
+      timelineStart,
+    );
+    const days = Math.max(1, (timelineEnd - startMs) / 86_400_000);
+    pxPerDay = Math.max(MIN_PPD, Math.min(MAX_PPD, w / days));
+    // Ceil so pixel rounding can't land the window before Jan 1.
+    const targetLeft = Math.ceil(
+      ((startMs - timelineStart) / 86_400_000) * pxPerDay,
+    );
+    tick().then(() =>
+      requestAnimationFrame(() => {
+        if (scrollEl) scrollEl.scrollLeft = targetLeft;
+      }),
+    );
+  }
+
   function onWheel(e: WheelEvent) {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
@@ -291,24 +319,7 @@
     )
       return;
     initialScrollDone = true;
-    // Fit exactly the current year (or the last year with data): from Jan 1 —
-    // or the first datum, if later — to the end of the data.
-    const year = Math.min(
-      new Date().getFullYear(),
-      new Date(timelineEnd - 1).getFullYear(),
-    );
-    const startMs = Math.max(new Date(year, 0, 1).getTime(), timelineStart);
-    const days = Math.max(1, (timelineEnd - startMs) / 86_400_000);
-    pxPerDay = Math.max(MIN_PPD, Math.min(MAX_PPD, containerWidth / days));
-    // Ceil so pixel rounding can't land the window before Jan 1.
-    const targetLeft = Math.ceil(
-      ((startMs - timelineStart) / 86_400_000) * pxPerDay,
-    );
-    tick().then(() =>
-      requestAnimationFrame(() => {
-        if (scrollEl) scrollEl.scrollLeft = targetLeft;
-      }),
-    );
+    fitPresetYear();
   });
 
   // ── Debounced visible window ───────────────────────────────────────────
@@ -751,11 +762,13 @@
           class="flex items-center rounded-lg overflow-hidden text-xs"
           style="border: 1px solid var(--app-border)"
         >
-          {#each [[$t("timeline.preset_all"), -1], [$t("timeline.preset_1y"), 365], [$t("timeline.preset_6m"), 182], [$t("timeline.preset_1m"), 30]] as [label, days]}
+          {#each [[$t("timeline.preset_all"), -1], [$t("timeline.preset_current"), 0], [$t("timeline.preset_1y"), 365], [$t("timeline.preset_6m"), 182], [$t("timeline.preset_1m"), 30]] as [label, days]}
             <button
               class="px-3.5 min-h-11 transition hover:opacity-70 active:opacity-60 border-r last:border-0"
               style="background: var(--app-surface-2); color: var(--app-muted); border-color: var(--app-border)"
-              onclick={() => setPreset(Number(days))}>{label}</button
+              onclick={() =>
+                Number(days) === 0 ? fitPresetYear() : setPreset(Number(days))}
+              >{label}</button
             >
           {/each}
         </div>
