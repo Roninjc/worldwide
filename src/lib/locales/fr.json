@@ -69,7 +69,7 @@
   "sync.mode_manual": "Manuel",
   "sync.mode_relay": "Automatique (chiffré)",
   "sync.mode_manual_desc": "Partagez vos fichiers JSON avec l'app comme d'habitude. Rien ne quitte votre appareil.",
-  "sync.mode_relay_desc": "L'app récupère vos données automatiquement au lancement. Chiffrement de bout en bout : le relais ne stocke que des données illisibles.",
+  "sync.mode_relay_desc": "L'app récupère vos données automatiquement au lancement. Chiffrement de bout en bout : le relais ne stocke que des données illisibles. Il ne distribue que les données générées par Scriptable : ce que vous importez à la main reste sur cet appareil.",
   "sync.relay_url": "URL du relais",
   "sync.relay_pass": "Phrase secrète",
   "sync.relay_pass_hint": "Utilisez la même phrase ici et dans Scriptable. Elle ne quitte jamais vos appareils.",

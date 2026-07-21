@@ -69,7 +69,7 @@
   "sync.mode_manual": "Manual",
   "sync.mode_relay": "Automática (cifrada)",
   "sync.mode_manual_desc": "Comparte tus archivos JSON a la app como siempre. Nada sale de tu dispositivo.",
-  "sync.mode_relay_desc": "La app descarga tus datos automáticamente al abrirse. Va cifrada de extremo a extremo: el relay solo guarda datos ilegibles.",
+  "sync.mode_relay_desc": "La app descarga tus datos automáticamente al abrirse. Va cifrada de extremo a extremo: el relay solo guarda datos ilegibles. Distribuye únicamente los datos generados por Scriptable: lo que importes a mano se queda solo en este dispositivo.",
   "sync.relay_url": "URL del relay",
   "sync.relay_pass": "Frase de cifrado",
   "sync.relay_pass_hint": "Usa la misma frase aquí y en Scriptable. Nunca sale de tus dispositivos.",

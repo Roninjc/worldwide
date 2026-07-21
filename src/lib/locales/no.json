@@ -69,7 +69,7 @@
   "sync.mode_manual": "Manuell",
   "sync.mode_relay": "Automatisk (kryptert)",
   "sync.mode_manual_desc": "Del JSON-filene dine til appen som vanlig. Ingenting forlater enheten din.",
-  "sync.mode_relay_desc": "Appen henter dataene dine automatisk ved oppstart. Ende-til-ende-kryptert: reléet lagrer bare uleselige data.",
+  "sync.mode_relay_desc": "Appen henter dataene dine automatisk ved oppstart. Ende-til-ende-kryptert: reléet lagrer bare uleselige data. Bare data generert av Scriptable distribueres: filer du importerer manuelt blir værende på denne enheten.",
   "sync.relay_url": "Relé-URL",
   "sync.relay_pass": "Passfrase",
   "sync.relay_pass_hint": "Bruk den samme passfrasen her og i Scriptable. Den forlater aldri enhetene dine.",
