@@ -47,6 +47,24 @@
 	--nav-clearance: calc(var(--nav-height) + var(--nav-bottom));
 }
 
+/* Bottom-pinned fixed bars. iOS standalone launches with a phantom-toolbar
+   viewport, so anything anchored with `bottom` sits ~44px too high until the
+   first scroll settles it. In standalone we anchor from the top against
+   100lvh (the large viewport: stable, and equal to the full screen there,
+   since standalone has no dynamic browser UI). In-browser keeps the normal
+   `bottom` anchor so bars ride above Safari's toolbar. `--pin-h` must carry
+   the bar's own height (measured, since top-anchoring needs it). */
+.pin-viewport-bottom {
+	position: fixed;
+	bottom: var(--pin-bottom, 0px);
+}
+@media (display-mode: standalone) {
+	.pin-viewport-bottom {
+		bottom: auto;
+		top: calc(100lvh - var(--pin-bottom, 0px) - var(--pin-h, 0px));
+	}
+}
+
 [data-theme="light"] {
 	color-scheme: light;
 	--app-bg: #f1f5f9;

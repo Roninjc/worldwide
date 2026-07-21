@@ -730,11 +730,13 @@
       style="bottom: {timelineHeight}px; background: linear-gradient(to top, var(--app-bg) 0%, transparent 100%); opacity: {showBottomFade ? 1 : 0}; transition: opacity 0.3s ease;"
     ></div>
 
-    <!-- ── Timeline zone: fixed just above the nav ────────────────────── -->
+    <!-- ── Timeline zone: pinned just above the nav ───────────────────── -->
     <div
-      class="fixed inset-x-0 bottom-0 z-20 border-t"
+      class="pin-viewport-bottom inset-x-0 z-20 border-t"
       bind:clientHeight={timelineHeight}
-      style="border-color: var(--app-border); background: var(--app-bg); padding-bottom: var(--nav-clearance)"
+      style="--pin-h: {timelineHeight > 0
+        ? timelineHeight + 'px'
+        : '240px'}; border-color: var(--app-border); background: var(--app-bg); padding-bottom: var(--nav-clearance)"
     >
       <!-- Controls row: presets left, zoom right -->
       <div class="px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">

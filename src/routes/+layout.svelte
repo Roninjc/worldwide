@@ -120,6 +120,11 @@
     );
   }
 
+  // Measured height of the bottom bar, needed by the standalone top-anchor
+  // (see .pin-viewport-bottom in app.css). --nav-height is the fallback
+  // until the first measurement lands.
+  let navBarHeight = $state(0);
+
   // ── Sliding indicator ────────────────────────────────────────────────
   let navRef = $state<HTMLElement | undefined>();
   let indicatorLeft = $state(0);
@@ -179,8 +184,11 @@
 
     <!-- Bottom bar: sync ← [nav pill] → theme -->
     <div
-      class="fixed left-0 right-0 z-30 flex items-center px-4"
-      style="bottom: var(--nav-bottom);"
+      class="pin-viewport-bottom left-0 right-0 z-30 flex items-center px-4"
+      bind:clientHeight={navBarHeight}
+      style="--pin-bottom: var(--nav-bottom); --pin-h: {navBarHeight > 0
+        ? navBarHeight + 'px'
+        : 'var(--nav-height)'};"
     >
       <!-- Left: Sync -->
       <div class="flex-1 flex justify-start">
