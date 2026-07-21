@@ -65,6 +65,15 @@
 	}
 }
 
+.app-shell {
+	height: 100dvh;
+}
+@media (display-mode: standalone) {
+	.app-shell {
+		height: 100lvh;
+	}
+}
+
 [data-theme="light"] {
 	color-scheme: light;
 	--app-bg: #f1f5f9;
