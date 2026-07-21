@@ -74,6 +74,19 @@
 	}
 }
 
+.edge-veil {
+	pointer-events: none;
+	backdrop-filter: blur(12px) saturate(160%);
+	-webkit-backdrop-filter: blur(12px) saturate(160%);
+	background: linear-gradient(
+		var(--veil-dir),
+		color-mix(in srgb, var(--app-bg) 62%, transparent),
+		transparent
+	);
+	mask-image: linear-gradient(var(--veil-dir), black 35%, transparent);
+	-webkit-mask-image: linear-gradient(var(--veil-dir), black 35%, transparent);
+}
+
 [data-theme="light"] {
 	color-scheme: light;
 	--app-bg: #f1f5f9;

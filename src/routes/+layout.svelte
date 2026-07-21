@@ -182,6 +182,15 @@
       </div>
     {/if}
 
+    <div
+      class="fixed inset-x-0 top-0 z-30 edge-veil"
+      style="height: calc(env(safe-area-inset-top, 0px) * 1.6); --veil-dir: to bottom;"
+    ></div>
+    <div
+      class="pin-viewport-bottom inset-x-0 z-10 edge-veil"
+      style="--pin-bottom: 0px; --pin-h: calc(var(--nav-clearance) + 20px); height: var(--pin-h); --veil-dir: to top;"
+    ></div>
+
     <!-- Bottom bar: sync ← [nav pill] → theme -->
     <div
       class="pin-viewport-bottom left-0 right-0 z-30 flex items-center px-4"
