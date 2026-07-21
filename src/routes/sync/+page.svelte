@@ -425,15 +425,58 @@
         {$t("sync.importing")}
       </div>
     {:else}
+      <div class="pointer-fine:hidden space-y-3">
+        <button
+          class="w-full flex items-center justify-center gap-2.5 rounded-xl py-3.5 font-medium transition-transform active:scale-[0.98]"
+          style="background: var(--app-accent-subtle); color: var(--app-accent); border: 1px solid var(--app-border)"
+          onclick={() => document.getElementById("file-input")?.click()}
+        >
+          <svg
+            class="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 3v12" />
+            <path d="m8 11 4 4 4-4" />
+            <path d="M20 16.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.5" />
+          </svg>
+          {$t("sync.import_button")}
+        </button>
+        <p
+          class="flex items-start gap-2 text-xs px-1"
+          style="color: var(--app-muted)"
+        >
+          <svg
+            class="w-4 h-4 flex-shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <path d="m16 6-4-4-4 4" />
+            <path d="M12 2v13" />
+          </svg>
+          <span>{$t("sync.share_hint")}</span>
+        </p>
+      </div>
+
+      <!-- Mouse devices: classic dropzone -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         role="button"
         tabindex="0"
-        class="rounded-xl p-10 text-center transition-all cursor-pointer"
+        class="hidden pointer-fine:block rounded-xl p-10 text-center transition-all cursor-pointer"
         style="
-				border: 2px dashed {isDragging ? 'var(--app-accent)' : 'var(--app-border)'};
-				background: {isDragging ? 'var(--app-accent-subtle)' : 'transparent'};
-			"
+					border: 2px dashed {isDragging ? 'var(--app-accent)' : 'var(--app-border)'};
+					background: {isDragging ? 'var(--app-accent-subtle)' : 'transparent'};
+				"
         ondragover={(e) => {
           e.preventDefault();
           isDragging = true;
@@ -461,7 +504,7 @@
           <path d="M20 16.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.5" />
         </svg>
         <p class="font-medium" style="color: var(--app-fg)">
-          {$t("sync.tap_to_select")}
+          {$t("sync.click_to_select")}
         </p>
         <p class="text-sm mt-1" style="color: var(--app-muted)">
           {$t("sync.drag_files")}
