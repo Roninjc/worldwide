@@ -198,15 +198,6 @@
     }
   }
 
-  function scrollToYear(year: number) {
-    if (!scrollEl) return;
-    const ms = new Date(year, 0, 1).getTime();
-    scrollEl.scrollLeft = Math.max(
-      0,
-      ((ms - timelineStart) / 86_400_000) * pxPerDay,
-    );
-  }
-
   function onWheel(e: WheelEvent) {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
@@ -299,11 +290,24 @@
       containerWidth === 0
     )
       return;
-    const _start = timelineStart;
     initialScrollDone = true;
-    pxPerDay = containerWidth / 365;
+    // Fit exactly the current year (or the last year with data): from Jan 1 —
+    // or the first datum, if later — to the end of the data.
+    const year = Math.min(
+      new Date().getFullYear(),
+      new Date(timelineEnd - 1).getFullYear(),
+    );
+    const startMs = Math.max(new Date(year, 0, 1).getTime(), timelineStart);
+    const days = Math.max(1, (timelineEnd - startMs) / 86_400_000);
+    pxPerDay = Math.max(MIN_PPD, Math.min(MAX_PPD, containerWidth / days));
+    // Ceil so pixel rounding can't land the window before Jan 1.
+    const targetLeft = Math.ceil(
+      ((startMs - timelineStart) / 86_400_000) * pxPerDay,
+    );
     tick().then(() =>
-      requestAnimationFrame(() => scrollToYear(new Date().getFullYear())),
+      requestAnimationFrame(() => {
+        if (scrollEl) scrollEl.scrollLeft = targetLeft;
+      }),
     );
   });
 
@@ -373,7 +377,10 @@
       Math.abs(visibleStartMs - timelineStart) < 86_400_000 * 2;
     const almostEnd = Math.abs(visibleEndMs - timelineEnd) < 86_400_000 * 2;
     if (almostStart && almostEnd) return null;
-    const y1 = new Date(visibleStartMs).getFullYear();
+    // One pixel of tolerance: browsers round scrollLeft to whole pixels, and a
+    // window starting a hair before Jan 1 must not label the previous year.
+    const eps = (1 / pxPerDay) * 86_400_000;
+    const y1 = new Date(visibleStartMs + eps).getFullYear();
     const y2 = new Date(
       Math.min(visibleEndMs, timelineEnd - 86_400_000),
     ).getFullYear();
