@@ -138,6 +138,18 @@
         });
     }
 
+    // Keep panning within the map canvas (re-set on every rebuild: the
+    // extents depend on the current width/height).
+    zoomBehavior
+      .extent([
+        [0, 0],
+        [width, height],
+      ])
+      .translateExtent([
+        [0, 0],
+        [width, height],
+      ]);
+
     // Re-apply zoom behavior and restore current transform
     svg.call(zoomBehavior);
     svg.call(zoomBehavior.transform, currentTransform);
@@ -206,8 +218,17 @@
       (height - pad * 2) / (y1 - y0),
       10,
     );
-    const tx = width / 2 - scale * ((x0 + x1) / 2);
-    const ty = height / 2 - scale * ((y0 + y1) / 2);
+    // Clamp to the same bounds as translateExtent: programmatic transforms
+    // bypass D3's constraint, and an out-of-bounds start would snap on the
+    // first user pan.
+    const tx = Math.min(
+      0,
+      Math.max(width - scale * width, width / 2 - scale * ((x0 + x1) / 2)),
+    );
+    const ty = Math.min(
+      0,
+      Math.max(height - scale * height, height / 2 - scale * ((y0 + y1) / 2)),
+    );
 
     d3.select(svgEl)
       .transition()
