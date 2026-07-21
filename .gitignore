@@ -24,3 +24,4 @@ vite.config.ts.timestamp-*
 
 .claude
 CLAUDE.md
+.playwright-mcp

@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   import { tweened } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
-  import { fade, fly } from "svelte/transition";
+  import { fade } from "svelte/transition";
   import { entriesStore } from "$lib/entriesStore.svelte";
   import { t, locale } from "svelte-i18n";
   import { getCountryName } from "$lib/countryName";
@@ -14,11 +14,13 @@
     computeCountryStats,
     countUniqueDays,
   } from "$lib/stats";
-  import { computeStays, buildColorMap, type Stay } from "$lib/stays";
+  import { computeStays, type Stay } from "$lib/stays";
+  import { flagColor } from "$lib/flagColor";
+  import BottomSheet from "$lib/components/BottomSheet.svelte";
+  import FlagBleed from "$lib/components/FlagBleed.svelte";
 
   // ── Timeline data ──────────────────────────────────────────────────────
   const stays = $derived(computeStays(entriesStore.entries));
-  const colorMap = $derived(buildColorMap(entriesStore.entries));
 
   // Starts at the first recorded day (not Jan 1 of that year), so the "all"
   // preset fits the data flush to the left edge with no empty months.
@@ -256,18 +258,12 @@
   // ── Timeline tooltip ───────────────────────────────────────────────────
   let timelineTooltip = $state<{
     stay: Stay;
-    color: string;
     x: number;
     y: number;
   } | null>(null);
 
   function onStayEnter(e: MouseEvent, stay: Stay) {
-    timelineTooltip = {
-      stay,
-      color: colorMap.get(stay.isoCountryCode) ?? "#64748b",
-      x: e.clientX,
-      y: e.clientY,
-    };
+    timelineTooltip = { stay, x: e.clientX, y: e.clientY };
   }
   function onStayMove(e: MouseEvent) {
     if (timelineTooltip)
@@ -399,15 +395,13 @@
     tweenedCoverage.set(coveragePercent);
   });
 
-  // ── Map API + country selection ────────────────────────────────────────
-  let mapApi = $state<{
-    zoomToVisited: () => void;
-    resetZoom: () => void;
-  } | null>(null);
+  // ── Country selection ──────────────────────────────────────────────────
   let selectedCountry = $state<string | null>(null);
+  let sheetOpen = $state(false);
 
-  function onCountryClick(alpha2: string) {
-    selectedCountry = alpha2 || null;
+  function openCountry(iso: string) {
+    selectedCountry = iso;
+    sheetOpen = true;
   }
 
   // ── Bottom sheet data ──────────────────────────────────────────────────
@@ -433,16 +427,6 @@
       filteredEntries.filter((e) => e.isoCountryCode === selectedCountry),
     );
   });
-
-  // ── Swipe to dismiss ───────────────────────────────────────────────────
-  let swipeStartY = 0;
-
-  function onSheetTouchStart(e: TouchEvent) {
-    swipeStartY = e.touches[0].clientY;
-  }
-  function onSheetTouchEnd(e: TouchEvent) {
-    if (e.changedTouches[0].clientY - swipeStartY > 80) selectedCountry = null;
-  }
 
   function formatShortDate(ms: number) {
     return new Date(ms).toLocaleDateString($locale ?? "es-ES", {
@@ -513,11 +497,16 @@
     >
       <!-- Map (sized by SVG aspect ratio) -->
       <div class="overflow-hidden relative" style="background: var(--map-bg)">
-        <WorldMap
-          daysByCountry={filteredDaysByCountry}
-          {onCountryClick}
-          bind:api={mapApi}
-        />
+        <WorldMap daysByCountry={filteredDaysByCountry} />
+        {#if periodLabel}
+          <div
+            class="absolute top-2 left-2 px-2.5 py-1.5 rounded-lg text-xs font-mono shadow-lg pointer-events-none"
+            style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--app-muted); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
+            transition:fade={{ duration: 150 }}
+          >
+            {periodLabel}
+          </div>
+        {/if}
       </div>
 
       <!-- Legend strip -->
@@ -554,14 +543,6 @@
 
         <!-- Stats grid -->
         <div class="px-4 pt-3 pb-2">
-          {#if periodLabel}
-            <p
-              class="text-xs mb-2 font-mono tracking-wide"
-              style="color: var(--app-accent); opacity: 0.75"
-            >
-              {periodLabel}
-            </p>
-          {/if}
           <div class="grid grid-cols-3 gap-3">
             <div
               class="rounded-xl p-3 text-center"
@@ -636,37 +617,35 @@
             {$t("stats.top_countries")}
           </p>
           <div class="space-y-2">
-            {#each topCountries as stat, i (stat.isoCountryCode)}
-              <div
-                class="flex items-center gap-3"
+            {#each topCountries as stat (stat.isoCountryCode)}
+              <button
+                class="relative overflow-hidden w-full flex items-center rounded-xl px-3 py-2.5 text-left transition-opacity active:opacity-60"
+                style="background: var(--app-surface)"
                 transition:fade={{ duration: 200 }}
+                onclick={() => openCountry(stat.isoCountryCode)}
               >
-                <span
-                  class="text-xs w-4 text-right"
-                  style="color: var(--app-muted); opacity: 0.6">{i + 1}</span
-                >
-                <span class="text-xl leading-none"
-                  >{flagEmoji(stat.isoCountryCode)}</span
-                >
-                <span
-                  class="flex-1 text-sm truncate"
-                  style="color: var(--app-fg)">{getCountryName(stat.isoCountryCode, $locale)}</span
-                >
-                <span class="text-sm font-mono" style="color: var(--app-muted)"
-                  >{stat.days}d</span
-                >
-                <div
-                  class="w-16 h-1.5 rounded-full overflow-hidden"
-                  style="background: var(--app-track)"
-                >
+                <FlagBleed code={stat.isoCountryCode} opacity={0.4} width="35%" size="6rem" />
+                <div class="relative flex-1 min-w-0 flex items-center gap-3 pl-10">
+                  <span
+                    class="flex-1 min-w-0 text-sm truncate"
+                    style="color: var(--app-fg)">{getCountryName(stat.isoCountryCode, $locale)}</span
+                  >
+                  <span class="text-sm font-mono flex-shrink-0" style="color: var(--app-muted)"
+                    >{stat.days}d</span
+                  >
                   <div
-                    class="h-full rounded-full transition-[width] duration-300"
-                    style="width: {Math.round(
-                      (stat.days / topCountries[0].days) * 100,
-                    )}%; background: var(--app-accent)"
-                  ></div>
+                    class="w-16 h-1.5 rounded-full overflow-hidden flex-shrink-0"
+                    style="background: var(--app-track)"
+                  >
+                    <div
+                      class="h-full rounded-full transition-[width] duration-300"
+                      style="width: {Math.round(
+                        (stat.days / topCountries[0].days) * 100,
+                      )}%; background: {flagColor(stat.isoCountryCode)}"
+                    ></div>
+                  </div>
                 </div>
-              </div>
+              </button>
             {/each}
           </div>
 
@@ -702,17 +681,11 @@
                     {group.year}
                   </p>
                   {#each group.stays as stay (stay.isoCountryCode + stay.startDate)}
-                    {@const color =
-                      colorMap.get(stay.isoCountryCode) ?? "#64748b"}
                     <button
                       class="w-full flex items-center gap-3 py-2 border-b last:border-0 text-left transition-opacity active:opacity-60"
                       style="border-color: var(--app-border)"
-                      onclick={() => (selectedCountry = stay.isoCountryCode)}
+                      onclick={() => openCountry(stay.isoCountryCode)}
                     >
-                      <span
-                        class="w-1 h-6 rounded-full flex-shrink-0"
-                        style="background: {color}"
-                      ></span>
                       <span class="text-lg leading-none flex-shrink-0"
                         >{flagEmoji(stay.isoCountryCode)}</span
                       >
@@ -730,7 +703,8 @@
                       >
                       <span
                         class="text-sm font-mono flex-shrink-0 w-9 text-right"
-                        style="color: var(--app-accent)">{stay.days}d</span
+                        style="color: var(--app-muted)"
+                        >{stay.days}d</span
                       >
                     </button>
                   {/each}
@@ -766,7 +740,7 @@
         >
           {#each [[$t("timeline.preset_all"), -1], [$t("timeline.preset_1y"), 365], [$t("timeline.preset_6m"), 182], [$t("timeline.preset_1m"), 30]] as [label, days]}
             <button
-              class="px-2.5 py-1.5 transition-opacity hover:opacity-70 border-r last:border-0"
+              class="px-3.5 min-h-11 transition hover:opacity-70 active:opacity-60 border-r last:border-0"
               style="background: var(--app-surface-2); color: var(--app-muted); border-color: var(--app-border)"
               onclick={() => setPreset(Number(days))}>{label}</button
             >
@@ -774,12 +748,12 @@
         </div>
         <div class="flex items-center gap-1.5 flex-shrink-0">
           <button
-            class="w-8 h-8 flex items-center justify-center rounded-lg text-lg leading-none transition-opacity hover:opacity-70"
+            class="w-11 h-11 flex items-center justify-center rounded-xl text-lg leading-none transition hover:opacity-70 active:scale-95"
             style="background: var(--app-surface-2); border: 1px solid var(--app-border); color: var(--app-muted)"
             onclick={() => zoom(1 / 1.3)}>−</button
           >
           <button
-            class="w-8 h-8 flex items-center justify-center rounded-lg text-lg leading-none transition-opacity hover:opacity-70"
+            class="w-11 h-11 flex items-center justify-center rounded-xl text-lg leading-none transition hover:opacity-70 active:scale-95"
             style="background: var(--app-surface-2); border: 1px solid var(--app-border); color: var(--app-muted)"
             onclick={() => zoom(1.3)}>+</button
           >
@@ -864,15 +838,16 @@
           <!-- Stays track -->
           <div class="absolute left-0 right-0" style="top: 20px; height: 36px;">
             {#each stays as stay}
-              {@const color = colorMap.get(stay.isoCountryCode) ?? "#64748b"}
+              {@const color = flagColor(stay.isoCountryCode)}
               {@const w = stayWidth(stay)}
               {@const l = stayLeft(stay)}
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
               <div
                 class="absolute top-0 h-full flex items-center overflow-hidden
-									hover:brightness-125 transition-[filter] cursor-default"
+									hover:brightness-125 transition-[filter] cursor-pointer"
                 style="left: {l}px; width: {w}px;
 									background-color: {color}20; border-left: 2px solid {color};"
+                onclick={() => openCountry(stay.isoCountryCode)}
                 onmouseenter={(e) => onStayEnter(e, stay)}
                 onmousemove={onStayMove}
                 onmouseleave={() => {
@@ -897,79 +872,39 @@
     </div>
 
     <!-- ── Country bottom sheet ───────────────────────────────────────── -->
-    {#if selectedCountry && selectedStat}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        class="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl shadow-2xl"
-        style="
-					max-height: 70%;
-					background: var(--app-bg);
-					border-top: 1px solid var(--app-border);
-				"
-        in:fly={{ y: 420, duration: 320, easing: cubicOut }}
-        out:fly={{ y: 420, duration: 220 }}
-        ontouchstart={onSheetTouchStart}
-        ontouchend={onSheetTouchEnd}
-      >
-        <!-- Drag handle -->
-        <button
-          type="button"
-          class="flex justify-center pt-2.5 pb-1 flex-shrink-0 cursor-pointer"
-          aria-label="Close country details"
-          onclick={() => {
-            selectedCountry = null;
-          }}
-        >
-          <div
-            class="w-9 h-1 rounded-full"
-            style="background: var(--app-muted); opacity: 0.4"
-          ></div>
-        </button>
-
-        <!-- Header -->
-        <div class="flex items-center gap-3 px-4 pb-3 flex-shrink-0">
-          <span class="text-3xl leading-none"
-            >{flagEmoji(selectedStat.isoCountryCode)}</span
-          >
-          <div class="flex-1 min-w-0">
-            <h2
-              class="font-bold text-lg leading-tight truncate"
-              style="color: var(--app-fg)"
-            >
-              {getCountryName(selectedStat.isoCountryCode, $locale)}
-            </h2>
-            {#if periodLabel}
-              <p
-                class="text-xs font-mono mt-0.5"
-                style="color: var(--app-accent); opacity: 0.7"
+    <BottomSheet bind:open={sheetOpen}>
+      {#snippet header()}
+        {#if selectedStat}
+          <div class="relative overflow-hidden -mx-5 px-5 py-1">
+            <FlagBleed
+              code={selectedStat.isoCountryCode}
+              opacity={0.45}
+              width="35%"
+              size="7rem"
+            />
+            <div class="relative pl-10">
+              <h2
+                class="font-bold text-lg leading-tight truncate"
+                style="color: var(--app-fg)"
               >
-                {periodLabel}
-              </p>
-            {/if}
+                {getCountryName(selectedStat.isoCountryCode, $locale)}
+              </h2>
+              {#if periodLabel}
+                <p
+                  class="text-xs font-mono mt-0.5"
+                  style="color: var(--app-muted)"
+                >
+                  {periodLabel}
+                </p>
+              {/if}
+            </div>
           </div>
-          <button
-            class="w-8 h-8 flex items-center justify-center rounded-full transition-opacity hover:opacity-60 flex-shrink-0"
-            style="background: var(--app-surface); color: var(--app-muted)"
-            onclick={() => {
-              selectedCountry = null;
-            }}
-            aria-label="Close country details"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        {/if}
+      {/snippet}
 
+      {#if selectedStat}
         <!-- Stats row -->
-        <div class="flex gap-3 px-4 pb-4 flex-shrink-0">
+        <div class="flex gap-3 pb-4">
           <div
             class="flex-1 rounded-xl p-3 text-center"
             style="background: var(--app-surface)"
@@ -1020,42 +955,42 @@
           {/if}
         </div>
 
-        <!-- Stays list (scrollable) -->
         {#if selectedStays.length > 0}
-          <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
-            <p
-              class="text-xs uppercase tracking-wider mb-2"
-              style="color: var(--app-muted)"
-            >
-              {$t("stats.stays")}
-            </p>
-            <div class="space-y-1.5">
-              {#each selectedStays as stay}
-                <div
-                  class="flex items-center gap-3 py-2 border-b last:border-0"
-                  style="border-color: var(--app-border)"
-                >
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm" style="color: var(--app-fg)">
-                      {formatShortDate(stay.startDate)}
-                      {#if stay.days > 1}
-                        <span class="mx-1" style="color: var(--app-muted)"
-                          >→</span
-                        >
-                        {formatShortDate(stay.endDate)}
-                      {/if}
-                    </p>
-                  </div>
-                  <span
-                    class="text-sm font-mono flex-shrink-0"
-                    style="color: var(--app-accent)">{stay.days}d</span
-                  >
+          <p
+            class="text-xs uppercase tracking-wider mb-2"
+            style="color: var(--app-muted)"
+          >
+            {$t("stats.stays")}
+          </p>
+          <div class="space-y-1.5 pb-2">
+            {#each selectedStays as stay}
+              <div
+                class="flex items-center gap-3 py-2 border-b last:border-0"
+                style="border-color: var(--app-border)"
+              >
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm" style="color: var(--app-fg)">
+                    {formatShortDate(stay.startDate)}
+                    {#if stay.days > 1}
+                      <span class="mx-1" style="color: var(--app-muted)"
+                        >→</span
+                      >
+                      {formatShortDate(stay.endDate)}
+                    {/if}
+                  </p>
                 </div>
-              {/each}
-            </div>
+                <span
+                  class="text-sm font-mono flex-shrink-0"
+                  style="color: color-mix(in srgb, {flagColor(
+                    selectedStat.isoCountryCode,
+                  )} 45%, var(--app-fg))"
+                  >{stay.days}d</span
+                >
+              </div>
+            {/each}
           </div>
         {/if}
-      </div>
-    {/if}
+      {/if}
+    </BottomSheet>
   {/if}
 </div>

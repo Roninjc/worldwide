@@ -67,12 +67,14 @@
     return "#38bdf8";
   }
 
+  const MAP_ASPECT = 0.62;
+
   // ── Build all paths (initial + resize) ──────────────────────────────
   function buildPaths() {
     if (!svgEl || !worldData || !container) return;
     const width = container.clientWidth;
     if (width === 0) return;
-    const height = Math.round(width * 0.52);
+    const height = Math.round(width * MAP_ASPECT);
 
     const svg = d3
       .select(svgEl)
@@ -83,7 +85,7 @@
 
     const projection = d3
       .geoNaturalEarth1()
-      .scale(width / 6.4)
+      .scale(width / 5.7)
       .translate([width / 2, height / 2]);
     const pathGen = d3.geoPath(projection);
     const countries = feature(
@@ -140,10 +142,14 @@
     svg.call(zoomBehavior);
     svg.call(zoomBehavior.transform, currentTransform);
 
-    // Tap detection: pointerup fires on SVG (D3 zoom redirects it there via setPointerCapture).
-    // We measure movement since pointerdown — small movement = tap, not drag.
+    // Tap detection on `click`, not `pointerup`: on iOS the tap's emulated
+    // click fires AFTER pointerup, so opening a sheet on pointerup lets that
+    // ghost click land on the sheet's backdrop and close it instantly.
+    // Acting on the click itself consumes it. The click still reaches the SVG
+    // when D3 zoom captures the pointer, and we measure movement since
+    // pointerdown — small movement = tap, not drag.
     // Using a D3 namespace so repeated buildPaths() calls replace rather than stack.
-    svg.on("pointerup.tap", (event: PointerEvent) => {
+    svg.on("click.tap", (event: MouseEvent) => {
       const moved = Math.hypot(event.clientX - tapX, event.clientY - tapY);
       if (moved < 8) {
         if (tapAlpha2) {
@@ -193,7 +199,7 @@
     if (!isFinite(x0)) return;
 
     const width = container.clientWidth;
-    const height = Math.round(width * 0.52);
+    const height = Math.round(width * MAP_ASPECT);
     const pad = 32;
     const scale = Math.min(
       (width - pad * 2) / (x1 - x0),
@@ -280,38 +286,15 @@
       aria-label="Mapa mundial"
     ></svg>
 
-    <!-- Floating map controls (top-right) -->
-    <div class="absolute top-2 right-2 flex flex-col gap-1.5">
-      <!-- Zoom to visited -->
-      {#if daysByCountry.size > 0}
-        <button
-          class="w-8 h-8 flex items-center justify-center rounded-lg shadow-lg transition-opacity hover:opacity-70"
-          style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--app-fg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
-          title="Zoom a países visitados"
-          onclick={zoomToVisited}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-            <path d="M11 8v6M8 11h6" />
-          </svg>
-        </button>
-      {/if}
-
-      <!-- Reset zoom (only when zoomed) -->
-      {#if zoomScale > 1.05}
-        <button
-          class="w-8 h-8 flex items-center justify-center rounded-lg shadow-lg transition-opacity hover:opacity-70"
-          style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--app-fg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
-          title="Vista global"
-          onclick={resetZoom}
-        >
+    {#if daysByCountry.size > 0}
+      {@const zoomed = zoomScale > 1.05}
+      <button
+        class="absolute top-2 right-2 w-10 h-10 flex items-center justify-center rounded-lg shadow-lg transition hover:opacity-70 active:scale-95"
+        style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--app-fg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
+        title={zoomed ? "Vista global" : "Zoom a países visitados"}
+        onclick={() => (zoomed ? resetZoom() : zoomToVisited())}
+      >
+        {#if zoomed}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             class="w-4 h-4"
@@ -324,9 +307,21 @@
             <path d="M3.6 9h16.8M3.6 15h16.8" />
             <path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
           </svg>
-        </button>
-      {/if}
-    </div>
+        {:else}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            <path d="M11 8v6M8 11h6" />
+          </svg>
+        {/if}
+      </button>
+    {/if}
   {/if}
 
   {#if tooltip}
