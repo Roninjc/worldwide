@@ -172,6 +172,8 @@
       }
       tapAlpha2 = null;
     });
+
+    maybeInitialZoom();
   }
 
   // ── Update only fill colors ──────────────────────────────────────────
@@ -186,7 +188,7 @@
   }
 
   // ── Zoom to visited countries ────────────────────────────────────────
-  function zoomToVisited() {
+  function zoomToVisited(duration = 750) {
     if (!svgEl || !g || !container || !zoomBehavior) return;
 
     const visitedPaths = g
@@ -230,13 +232,23 @@
       Math.max(height - scale * height, height / 2 - scale * ((y0 + y1) / 2)),
     );
 
-    d3.select(svgEl)
-      .transition()
-      .duration(750)
-      .call(
-        zoomBehavior.transform,
-        d3.zoomIdentity.translate(tx, ty).scale(scale),
-      );
+    const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
+    const svg = d3.select(svgEl);
+    if (duration > 0) {
+      svg.transition().duration(duration).call(zoomBehavior.transform, transform);
+    } else {
+      svg.call(zoomBehavior.transform, transform);
+    }
+  }
+
+  // Default view: zoom to visited countries once, as soon as both the
+  // paths and the data are available (data loads async from IndexedDB).
+  // Animated on purpose: the world→visited transition draws attention.
+  let didInitialZoom = false;
+  function maybeInitialZoom() {
+    if (didInitialZoom || !g || daysByCountry.size === 0) return;
+    didInitialZoom = true;
+    zoomToVisited();
   }
 
   // ── Reset to world view ──────────────────────────────────────────────
@@ -284,6 +296,7 @@
       buildPaths();
     } else {
       updateColors(350);
+      maybeInitialZoom();
     }
   });
 </script>
