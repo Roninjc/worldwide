@@ -19,6 +19,12 @@ export interface Gap {
  */
 export const GAP_MAX_MISSING_DAYS = 3;
 
+/**
+ * Max missing days for a gap between two different-country entries to be
+ * flagged for review. Beyond this it's more likely tracking was simply off.
+ */
+export const OPEN_GAP_MAX_MISSING_DAYS = 14;
+
 /** Local noon of a date, so `toDateKey` maps it back to the intended calendar day. */
 function noon(y: number, m: number, d: number): number {
 	return new Date(y, m, d, 12, 0, 0, 0).getTime();
@@ -69,8 +75,48 @@ export function computeGaps(entries: LocationEntry[]): Gap[] {
 	return gaps;
 }
 
+/** A gap framed by two different countries: the app can't presume what happened in between. */
+export interface OpenGap {
+	prevIso: string;
+	nextIso: string;
+	missing: number[];
+	prevDate: number;
+	nextDate: number;
+}
+
+export function openGapKey(g: Pick<OpenGap, 'prevDate' | 'nextDate'>): string {
+	return `${g.prevDate}_${g.nextDate}`;
+}
+
+/** Detect gaps between consecutive entries of different countries, for the user to resolve. */
+export function computeOpenGaps(entries: LocationEntry[]): OpenGap[] {
+	if (entries.length < 2) return [];
+	const sorted = [...entries].sort((a, b) => a.date - b.date);
+	const gaps: OpenGap[] = [];
+
+	for (let i = 1; i < sorted.length; i++) {
+		const prev = sorted[i - 1];
+		const cur = sorted[i];
+		if (prev.isoCountryCode === cur.isoCountryCode) continue;
+		if (toDateKey(prev.date) === toDateKey(cur.date)) continue;
+		const missing = missingDaysBetween(prev.date, cur.date);
+		if (missing.length === 0 || missing.length > OPEN_GAP_MAX_MISSING_DAYS) continue;
+		gaps.push({
+			prevIso: prev.isoCountryCode,
+			nextIso: cur.isoCountryCode,
+			missing,
+			prevDate: prev.date,
+			nextDate: cur.date
+		});
+	}
+
+	return gaps;
+}
+
 /** Build the entry rows that fill a gap, flagged as manually filled. */
-export function gapFillEntries(gap: Gap): LocationEntry[] {
+export function gapFillEntries(
+	gap: Pick<Gap, 'missing'> & { isoCountryCode: string; country: string }
+): LocationEntry[] {
 	return gap.missing.map((date) => ({
 		country: gap.country,
 		isoCountryCode: gap.isoCountryCode,

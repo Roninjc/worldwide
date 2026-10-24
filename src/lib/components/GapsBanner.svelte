@@ -4,6 +4,8 @@
   import { entriesStore } from "$lib/entriesStore.svelte";
 
   const gaps = $derived(entriesStore.gaps);
+  const openGaps = $derived(entriesStore.openGaps);
+  const total = $derived(gaps.length + openGaps.length);
 
   // A stable fingerprint of the current gap set. Dismissal is remembered against
   // this value, so the banner reappears whenever the gaps change (e.g. a repair
@@ -11,7 +13,9 @@
   const signature = $derived(
     gaps
       .map((g) => g.isoCountryCode + ":" + g.missing.join(","))
-      .join("|"),
+      .join("|") +
+      "#" +
+      openGaps.map((g) => g.prevDate + "_" + g.nextDate).join("|"),
   );
 
   // Dismissed per signature, persisted for the session so a fresh set of gaps
@@ -23,7 +27,7 @@
   );
 
   const show = $derived(
-    entriesStore.loaded && gaps.length > 0 && dismissedFor !== signature,
+    entriesStore.loaded && total > 0 && dismissedFor !== signature,
   );
 
   function dismiss() {
@@ -64,7 +68,8 @@
         {$t("sync.gaps_title")}
       </p>
       <p class="text-[11px] leading-tight mt-0.5" style="color: var(--app-muted)">
-        {$t("sync.gaps_banner_body", { values: { count: gaps.length } })}
+        {#if openGaps.length > 0}{$t("sync.open_gaps_banner_body", { values: { count: openGaps.length } })}{#if gaps.length > 0}
+        · {/if}{/if}{#if gaps.length > 0}{$t("sync.gaps_banner_body", { values: { count: gaps.length } })}{/if}
       </p>
     </div>
 

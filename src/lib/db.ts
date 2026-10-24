@@ -46,6 +46,18 @@ export async function importEntries(entries: LocationEntry[]): Promise<number> {
 			await tx.store.put({ ...entry, id });
 			imported++;
 		}
+
+		// Same timestamp, different country: the source JSON was edited, so the old
+		// real entry is superseded. Filled days are app-managed and never replaced here.
+		if (!entry.filled) {
+			const sameMoment = await tx.store.index('by_date').getAll(entry.date);
+			for (const old of sameMoment) {
+				if (old.isoCountryCode !== entry.isoCountryCode && !old.filled) {
+					await tx.store.delete(old.id);
+					imported++;
+				}
+			}
+		}
 	}
 
 	await tx.done;

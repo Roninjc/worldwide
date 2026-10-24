@@ -1,6 +1,6 @@
 import { getAllEntries, importEntries, deleteEntry, getEntryCount } from './db';
 import { computeCountryStats, getAvailableYears, countUniqueDays } from './stats';
-import { computeGaps, gapFillEntries, type Gap } from './gaps';
+import { computeGaps, computeOpenGaps, gapFillEntries, openGapKey, type Gap, type OpenGap } from './gaps';
 import { syncStore } from './syncStore.svelte';
 import type { LocationEntry, CountryStat } from './types';
 
@@ -13,6 +13,14 @@ function createEntriesStore() {
 	const totalDays = $derived(countUniqueDays(entries));
 	const totalCountries = $derived(countryStats.length);
 	const gaps = $derived(computeGaps(entries));
+	// Gaps the user chose to ignore, remembered across sessions by their bounding entries.
+	const IGNORED_KEY = 'ww_ignored_gaps';
+	let ignored = $state<string[]>(
+		typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem(IGNORED_KEY) ?? '[]') : []
+	);
+	const openGaps = $derived(
+		computeOpenGaps(entries).filter((g) => !ignored.includes(openGapKey(g)))
+	);
 	const filledEntries = $derived(
 		entries.filter((e) => e.filled).sort((a, b) => a.date - b.date)
 	);
@@ -52,6 +60,17 @@ function createEntriesStore() {
 		await load();
 	}
 
+	/** Resolve an open gap by filling every missing day with the country the user picked. */
+	async function fillOpenGap(gap: OpenGap, isoCountryCode: string, country: string) {
+		await importEntries(gapFillEntries({ missing: gap.missing, isoCountryCode, country }));
+		await load();
+	}
+
+	function ignoreOpenGap(gap: OpenGap) {
+		ignored = [...ignored, openGapKey(gap)];
+		localStorage.setItem(IGNORED_KEY, JSON.stringify(ignored));
+	}
+
 	/** Remove an entry (undo a day filled by mistake). */
 	async function removeEntry(entry: LocationEntry) {
 		await deleteEntry(entry);
@@ -77,11 +96,14 @@ function createEntriesStore() {
 		get totalDays() { return totalDays; },
 		get totalCountries() { return totalCountries; },
 		get gaps() { return gaps; },
+		get openGaps() { return openGaps; },
 		get filledEntries() { return filledEntries; },
 		load,
 		importFiles,
 		fillGap,
 		fillAllGaps,
+		fillOpenGap,
+		ignoreOpenGap,
 		removeEntry,
 		changeEntryCountry
 	};

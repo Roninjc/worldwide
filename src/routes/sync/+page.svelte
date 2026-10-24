@@ -18,12 +18,13 @@
   import Modal from "$lib/components/Modal.svelte";
   import FlagBleed from "$lib/components/FlagBleed.svelte";
   import type { LocationEntry } from "$lib/types";
-  import type { Gap } from "$lib/gaps";
+  import type { Gap, OpenGap } from "$lib/gaps";
 
   // ── Gaps / manual fills ──────────────────────────────────────────────
   const allCountries = $derived(getAllCountryNames($locale));
 
   const hasGaps = $derived(entriesStore.gaps.length > 0);
+  const hasOpenGaps = $derived(entriesStore.openGaps.length > 0);
   const hasFilled = $derived(entriesStore.filledEntries.length > 0);
   // Unapplied repair changes (kept visible even at zero repairs so a
   // "delete all" can still be committed to the device).
@@ -64,6 +65,13 @@
 
   async function fillGap(gap: Gap) {
     await entriesStore.fillGap(gap);
+    repairsOpen = true;
+    await markRepairChange();
+  }
+
+  async function fillOpenGap(gap: OpenGap, code: string) {
+    if (!code) return;
+    await entriesStore.fillOpenGap(gap, code, getCountryName(code, $locale));
     repairsOpen = true;
     await markRepairChange();
   }
@@ -795,7 +803,7 @@
     </section>
 
     <!-- ── Data repairs: summary card → editor sheet ──────────────────── -->
-    {#if hasGaps || hasFilled || pendingChanges}
+    {#if hasGaps || hasOpenGaps || hasFilled || pendingChanges}
       <button
         class="w-full flex items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.99]"
         style="background: var(--app-surface)"
@@ -815,7 +823,7 @@
             {$t("sync.repairs_title")}
           </p>
           <p class="text-xs truncate" style="color: var(--app-muted)">
-            {#if hasGaps}{$t("sync.gaps_title")} · {entriesStore.gaps.length}{/if}{#if hasGaps && hasFilled} · {/if}{#if hasFilled}{$t("sync.filled_title")} · {entriesStore.filledEntries.length}{/if}
+            {#if hasOpenGaps}{$t("sync.open_gaps_title")} · {entriesStore.openGaps.length}{/if}{#if hasOpenGaps && (hasGaps || hasFilled)} · {/if}{#if hasGaps}{$t("sync.gaps_title")} · {entriesStore.gaps.length}{/if}{#if hasGaps && hasFilled} · {/if}{#if hasFilled}{$t("sync.filled_title")} · {entriesStore.filledEntries.length}{/if}
           </p>
         </div>
         {#if pendingChanges}
@@ -894,10 +902,83 @@
           </div>
         {/if}
 
+        {#if hasOpenGaps}
+          <div class="space-y-3" transition:slide={{ duration: 240, easing: cubicOut }}>
+            <div class="flex items-center gap-2">
+              <p class="text-xs uppercase tracking-wider" style="color: var(--app-muted)">
+                {$t("sync.open_gaps_title")}
+              </p>
+              <span
+                class="text-[11px] font-mono px-2 py-0.5 rounded-full"
+                style="background: var(--app-accent-subtle); color: var(--app-accent)"
+                >{entriesStore.openGaps.length}</span
+              >
+            </div>
+            <p class="text-xs" style="color: var(--app-muted)">
+              {$t("sync.open_gaps_desc")}
+            </p>
+
+            <div class="space-y-2">
+              {#each entriesStore.openGaps as gap (gap.prevDate + "_" + gap.nextDate)}
+                <div
+                  class="rounded-xl px-3 py-2.5 space-y-2.5"
+                  style="background: var(--app-surface-2)"
+                  animate:flip={{ duration: 250 }}
+                  transition:slide={{ duration: 200, easing: cubicOut }}
+                >
+                  <div>
+                    <p class="text-sm" style="color: var(--app-fg)">
+                      {getCountryName(gap.prevIso, $locale)} → {getCountryName(gap.nextIso, $locale)}
+                    </p>
+                    <p class="text-xs" style="color: var(--app-muted)">
+                      {gapDate(gap.missing[0])}{#if gap.missing.length > 1}
+                        → {gapDate(gap.missing[gap.missing.length - 1])}{/if}
+                      · {gap.missing.length}d
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    {#each [gap.prevIso, gap.nextIso] as code}
+                      <button
+                        onclick={() => fillOpenGap(gap, code)}
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                        style="background: var(--app-accent); color: #ffffff"
+                        >{$t("sync.open_gaps_fill_with", { values: { country: getCountryName(code, $locale) } })}</button
+                      >
+                    {/each}
+                    <div
+                      class="relative px-3 py-1.5 rounded-lg text-xs font-medium"
+                      style="background: var(--app-surface); color: var(--app-fg); border: 1px solid var(--app-border)"
+                    >
+                      {$t("sync.open_gaps_other")}
+                      <select
+                        value=""
+                        onchange={(e) => fillOpenGap(gap, e.currentTarget.value)}
+                        aria-label={$t("sync.open_gaps_other")}
+                        class="absolute inset-0 w-full opacity-0 cursor-pointer"
+                      >
+                        <option value="" disabled></option>
+                        {#each allCountries as c}
+                          <option value={c.code}>{c.name}</option>
+                        {/each}
+                      </select>
+                    </div>
+                    <button
+                      onclick={() => entriesStore.ignoreOpenGap(gap)}
+                      class="px-3 py-1.5 rounded-lg text-xs transition-opacity hover:opacity-80"
+                      style="color: var(--app-muted)"
+                      >{$t("sync.open_gaps_ignore")}</button
+                    >
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
         <!-- Repairs area: pending changes (apply controls) above, list below -->
         {#if hasFilled || pendingChanges}
           <div class="space-y-4" transition:slide={{ duration: 240, easing: cubicOut }}>
-            {#if hasGaps}
+            {#if hasGaps || hasOpenGaps}
               <div class="border-t" style="border-color: var(--app-border)"></div>
             {/if}
 
