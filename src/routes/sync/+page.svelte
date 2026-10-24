@@ -71,7 +71,8 @@
 
   async function fillOpenGap(gap: OpenGap, code: string) {
     if (!code) return;
-    await entriesStore.fillOpenGap(gap, code, getCountryName(code, $locale));
+    // English name: the widget groups and dedupes by the name it records (en_US).
+    await entriesStore.fillOpenGap(gap, code, getCountryName(code, "en"));
     repairsOpen = true;
     await markRepairChange();
   }
@@ -89,10 +90,11 @@
 
   async function changeCountry(entry: LocationEntry, code: string) {
     if (!code || code === entry.isoCountryCode) return;
+    // English name, as in fillOpenGap.
     await entriesStore.changeEntryCountry(
       entry,
       code,
-      getCountryName(code, $locale),
+      getCountryName(code, "en"),
     );
     await markRepairChange();
   }
